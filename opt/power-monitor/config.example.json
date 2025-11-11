@@ -1,0 +1,26 @@
+{
+  "homeassistant": {
+    "url": "https://your-ha-instance.local:8123",
+    "token": "your_long_lived_access_token_here",
+    "entity_id": "sensor.power_consumption"
+  },
+  "github": {
+    "token": "ghp_your_github_personal_access_token",
+    "repo_owner": "your-username",
+    "repo_name": "power-stats-pages",
+    "branch": "main"
+  },
+  "data": {
+    "retention_days": 7,
+    "collection_interval_minutes": 10
+  },
+  "admin": {
+    "username": "admin",
+    "password_hash": "pbkdf2:sha256:your_hashed_password"
+  },
+  "paths": {
+    "state_file": "/etc/monitor.conf",
+    "web_root": "/var/www/html",
+    "data_file": "/var/www/html/data.json"
+  }
+}
