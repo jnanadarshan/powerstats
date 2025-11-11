@@ -6,32 +6,95 @@ Writes index.html and data.json into the repository web root for local testing.
 import json
 import os
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 # Paths
-repo_root = Path(r"d:\powerstats")
+# Compute the repository root dynamically from this script's location so the
+# render test works on non-Windows OSes and when the repo is checked out
+# elsewhere.
+repo_root = Path(__file__).resolve().parents[1]
 template_dir = repo_root / 'opt' / 'power-monitor' / 'templates'
 web_root = repo_root / 'var' / 'www' / 'html'
 web_root.mkdir(parents=True, exist_ok=True)
 
-# Sample data: generate points for the last 24 hours every hour
-now = datetime.utcnow()
+# Sample data: generate points for the last 7 days (every 10 minutes = 144 points/day)
+# Include some power cuts to demonstrate the tracking feature
+# Use UTC for generated timestamps but also compute local midnight for 'today' selection
+now = datetime.now(timezone.utc)
+local_now = datetime.now().astimezone()
+local_midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+local_midnight_utc = local_midnight.astimezone(timezone.utc)
 points = []
-for i in range(0, 24):
-    t = now - timedelta(hours=(23 - i))
+total_points = 7 * 144  # 7 days of 10-minute intervals
+
+# Define power cut periods (start_hour, duration_hours)
+power_cuts = [
+    (50, 2),    # Power cut starting at point 50 (around 3.5 hours), lasting 2 hours (12 points)
+    (200, 1.5), # Power cut starting at point 200, lasting 1.5 hours (9 points)
+    (500, 0.5), # Short power cut starting at point 500, lasting 30 minutes (3 points)
+    (800, 3),   # Longer power cut starting at point 800, lasting 3 hours (18 points)
+]
+
+for i in range(total_points):
+    t = now - timedelta(minutes=(total_points - i) * 10)
+    ts = t.replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+    
+    # Check if this point is during a power cut
+    is_power_cut = False
+    for cut_start, cut_duration_hours in power_cuts:
+        cut_duration_points = int(cut_duration_hours * 6)  # 6 points per hour (10-min intervals)
+        if cut_start <= i < cut_start + cut_duration_points:
+            is_power_cut = True
+            break
+    
+    if is_power_cut:
+        value = 0  # Power is out
+    else:
+        # Generate realistic varying power consumption
+        # Base load + time-of-day variation + daily cycle + some randomness
+        hour_of_day = (i * 10 / 60) % 24
+        day_cycle = (i / 144) % 7
+        
+        # Higher usage during day (6am-10pm), lower at night
+        time_factor = 1.0
+        if 6 <= hour_of_day < 10:  # Morning ramp-up
+            time_factor = 0.7 + (hour_of_day - 6) * 0.075
+        elif 10 <= hour_of_day < 18:  # Day time peak
+            time_factor = 1.2
+        elif 18 <= hour_of_day < 22:  # Evening peak
+            time_factor = 1.4
+        elif 22 <= hour_of_day or hour_of_day < 6:  # Night time low
+            time_factor = 0.5
+        
+        # Weekly variation (slightly higher on weekdays)
+        week_factor = 1.0 + (0.1 if day_cycle < 5 else -0.1)
+        
+        # Add some randomness
+        import random
+        random.seed(i)  # Consistent random values
+        noise = random.uniform(-20, 20)
+        
+        base_power = 250  # Base load in watts
+        value = round(base_power * time_factor * week_factor + noise, 2)
+        value = max(0, value)  # Ensure non-negative
+    
     points.append({
-        'timestamp': t.replace(microsecond=0).isoformat() + 'Z',
-        'value': round(200 + 100 * (i % 5) + (i - 12) * 2.3, 2),
+        'timestamp': ts,
+        'value': value,
         'unit': 'W'
     })
 
 # Data file
 data = {
     'data_points': points,
-    'last_update': datetime.utcnow().isoformat()
+    'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
 }
+
+# Compute today's points (since local midnight) for convenience in the template
+today_points = [p for p in points if datetime.fromisoformat(p['timestamp'].replace('Z', '+00:00')) >= local_midnight_utc]
+data['today_points'] = today_points
 
 # Write data.json
 with open(web_root / 'data.json', 'w', encoding='utf-8') as f:
@@ -60,9 +123,10 @@ statistics = {
 
 html = template.render(
     data_points=json.dumps(points),
+    today_points=json.dumps(today_points),
     statistics=statistics,
     last_update=data['last_update'],
-    generation_time=datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
+    generation_time=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 )
 
 with open(web_root / 'index.html', 'w', encoding='utf-8') as f:
