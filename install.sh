@@ -124,13 +124,71 @@ apk add --no-cache \
     py3-requests \
     py3-jinja2 \
     lighttpd \
-    curl
+    curl \
+    dcron \
+    busybox-syslogd \
+    logrotate
 
 # Note: We use Alpine's py3-* packages instead of pip to avoid externally-managed-environment error
 log_info "Package installation complete"
 apk info -s python3 py3-requests py3-jinja2 lighttpd curl | grep 'size' || echo "Package info not available"
 
 log_success "Dependencies installed"
+
+# Enable and start cron and syslog so scheduled jobs will run out of the box
+log_info "Enabling cron (dcron) and syslog (syslogd) services"
+if rc-update add dcron default > /dev/null 2>&1; then
+    log_info "dcron added to default runlevel"
+else
+    log_warn "Could not add dcron to default runlevel (rc-update may not be available)"
+fi
+if rc-service dcron start > /dev/null 2>&1; then
+    log_success "dcron started"
+else
+    log_warn "Failed to start dcron (it may already be running or service not available)"
+fi
+
+if rc-update add syslogd default > /dev/null 2>&1; then
+    log_info "syslogd added to default runlevel"
+else
+    log_warn "Could not add syslogd to default runlevel"
+fi
+if rc-service syslogd start > /dev/null 2>&1; then
+    log_success "syslogd started"
+else
+    log_warn "Failed to start syslogd (it may already be running or service not available)"
+fi
+
+# Configure logrotate for power-monitor logs to prevent uncontrolled growth
+LOGROTATE_CONF="/etc/logrotate.d/power-monitor"
+cat > "$LOGROTATE_CONF" << 'LR'
+/var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log {
+    weekly
+    rotate 4
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 644 root root
+    sharedscripts
+    postrotate
+        # no-op; logs are plain files appended by cron jobs
+    endscript
+}
+LR
+chown root:root "$LOGROTATE_CONF" || true
+chmod 644 "$LOGROTATE_CONF" || true
+
+# Ensure logrotate runs daily (Alpine runs /etc/periodic/daily/* via run-parts)
+LR_DAILY="/etc/periodic/daily/logrotate-power-monitor"
+cat > "$LR_DAILY" << 'LRD'
+#!/bin/sh
+# Run logrotate for configured logs
+/usr/sbin/logrotate /etc/logrotate.conf || true
+LRD
+chmod 755 "$LR_DAILY" || true
+
+log_info "Logrotate configured for power-monitor logs (weekly, 4 rotations)"
 
 # =============================================================================
 # STEP 2: Setup Cron
@@ -192,22 +250,54 @@ log_success "Application files installed"
 # Configure cron jobs now that app is installed
 log_info "Configuring cron jobs for data collection..."
 
-# Remove existing power-monitor cron jobs
-crontab -l 2>/dev/null | grep -v 'power-monitor' > /tmp/crontab.tmp || true
+# Ensure log files exist and are writable by root
+mkdir -p /var/log
+: > /var/log/power-monitor-collector.log 2>/dev/null || true
+: > /var/log/power-monitor-publisher.log 2>/dev/null || true
+chown root:root /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
+chmod 644 /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
 
-# Add new cron jobs (every 10 minutes)
-cat >> /tmp/crontab.tmp << 'CRON_EOF'
-# Power Monitor - Data Collection (every 10 minutes)
-*/10 * * * * /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1
+# Preferred on Alpine: append to system crontab at /etc/crontabs/root (no user column)
+CRONTAB_FILE="/etc/crontabs/root"
+TS=$(date +%Y%m%d%H%M%S)
+BACKUP="${CRONTAB_FILE}.bak.${TS}"
+if [ -f "${CRONTAB_FILE}" ]; then
+    cp "${CRONTAB_FILE}" "${BACKUP}"
+    log_info "Backed up ${CRONTAB_FILE} -> ${BACKUP}"
+else
+    # create basic file if missing (preserve existing periodic entries if any expected)
+    touch "${CRONTAB_FILE}"
+    log_info "Created ${CRONTAB_FILE}"
+fi
 
-# Power Monitor - Data Publishing (every 10 minutes, offset by 5 min)
-5,15,25,35,45,55 * * * * /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1
-CRON_EOF
+# Combined job runs collector then publisher every 2 minutes
+JOB_LINE="*/2 * * * * /bin/sh -c '/usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1 && /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1'"
 
-crontab /tmp/crontab.tmp
-rm /tmp/crontab.tmp
+# Append job if not present (use fixed-string match)
+if ! grep -Fq "${JOB_LINE}" "${CRONTAB_FILE}"; then
+    printf "\n# Power Monitor - combined job (every 2 minutes)\n" >> "${CRONTAB_FILE}"
+    printf "%s\n" "${JOB_LINE}" >> "${CRONTAB_FILE}"
+    log_success "Appended power-monitor job to ${CRONTAB_FILE}"
+else
+    log_info "Power-monitor job already present in ${CRONTAB_FILE}"
+fi
 
-log_success "Cron jobs configured"
+# Ensure correct ownership/permissions for system crontab
+chown root:root "${CRONTAB_FILE}" || true
+chmod 644 "${CRONTAB_FILE}" || true
+
+# Restart whichever cron service is present so changes take effect
+if rc-service dcron restart > /dev/null 2>&1; then
+    log_success "dcron restarted"
+elif rc-service crond restart > /dev/null 2>&1; then
+    log_success "crond restarted"
+elif rc-service cronie restart > /dev/null 2>&1; then
+    log_success "cronie restarted"
+else
+    log_warn "Could not restart cron service automatically; please restart (dcron/crond/cronie) to apply crontab changes"
+fi
+
+log_success "Cron jobs configured (system crontab updated)"
 
 # Initialize state file
 echo "maintenance_mode=false" > /etc/monitor.conf
