@@ -62,8 +62,9 @@ EOF
 # =============================================================================
 # STEP 0: Pre-flight Checks
 # =============================================================================
-
-log_info "Running pre-flight checks..."
+log_info "\n${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 0: Pre-flight Checks${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Check if running as root
 if [ "$(id -u)" -ne 0 ]; then
@@ -109,9 +110,9 @@ log_success "Internet connectivity verified"
 # =============================================================================
 # STEP 1: Install Dependencies
 # =============================================================================
-
-echo ""
-log_info "=== STEP 1: Installing Dependencies ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 1: Installing Dependencies${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 log_info "Updating package repositories..."
 apk update
@@ -134,9 +135,9 @@ log_success "Dependencies installed"
 # =============================================================================
 # STEP 2: Setup Cron
 # =============================================================================
-
-echo ""
-log_info "=== STEP 2: Setting Up Cron Jobs ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 2: Setting Up Cron Jobs${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Create cron directory structure (Alpine Linux requirement)
 log_info "Creating cron directories..."
@@ -151,9 +152,9 @@ log_info "Cron jobs will be configured in next step..."
 # =============================================================================
 # STEP 3: Install Application
 # =============================================================================
-
-echo ""
-log_info "=== STEP 3: Installing Application ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 3: Installing Application${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Create directory structure
 log_info "Creating application directories..."
@@ -216,9 +217,9 @@ log_success "Application installed successfully"
 # =============================================================================
 # STEP 4: Validate GitHub API
 # =============================================================================
-
-echo ""
-log_info "=== STEP 4: Validating GitHub API Access ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 4: Validating GitHub API Access${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Extract GitHub config from config.json
 GITHUB_TOKEN=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['github']['token'])")
@@ -262,9 +263,9 @@ fi
 # =============================================================================
 # STEP 5: Validate Home Assistant API
 # =============================================================================
-
-echo ""
-log_info "=== STEP 5: Validating Home Assistant API Access ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 5: Validating Home Assistant API Access${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 # Extract HA config from config.json
 HA_URL=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['url'])")
@@ -329,9 +330,9 @@ fi
 # =============================================================================
 # STEP 6: Configure and Start Web Server
 # =============================================================================
-
-echo ""
-log_info "=== STEP 6: Starting Web Server ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 6: Configuring and Starting Web Server${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 log_info "Creating lighttpd configuration..."
 cat > /etc/lighttpd/lighttpd.conf << 'LIGHTTPD_EOF'
@@ -433,9 +434,9 @@ fi
 # =============================================================================
 # STEP 7: Run Initial Data Collection
 # =============================================================================
-
-echo ""
-log_info "=== STEP 7: Running Initial Data Collection ==="
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "${BLUE}STEP 7: Running Initial Data Collection${NC}"
+log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
 log_info "Collecting initial data (this may take a moment)..."
 if /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1; then
