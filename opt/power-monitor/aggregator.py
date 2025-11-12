@@ -8,6 +8,7 @@ This script is intended to be run once a day, after midnight.
 import json
 import os
 import logging
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Dict, Any
@@ -107,6 +108,23 @@ def update_aggregate_file(file_path: str, summary_data: Dict[str, Any], max_days
 def main():
     """Main aggregation routine."""
     try:
+        # Ensure system time is correct after reboot (run once per boot)
+        def ensure_time_synced(marker_path='/var/run/power-monitor-time-synced'):
+            try:
+                if os.path.exists(marker_path):
+                    return
+                subprocess.run(['ntpd', '-d', '-q', '-p', 'pool.ntp.org'], check=False)
+                try:
+                    Path(os.path.dirname(marker_path)).mkdir(parents=True, exist_ok=True)
+                    Path(marker_path).write_text(datetime.now().isoformat())
+                except Exception:
+                    logger.debug('Could not write ntp marker file')
+            except FileNotFoundError:
+                logger.warning('ntpd not found; skipping time sync')
+            except Exception as e:
+                logger.error(f'Error while syncing time: {e}')
+
+        ensure_time_synced()
         config = get_config()
         web_root = Path(config.web_root)
         

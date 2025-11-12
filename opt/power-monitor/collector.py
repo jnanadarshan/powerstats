@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import logging
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional
@@ -215,6 +216,25 @@ class DataManager:
 def main():
     """Main collection routine"""
     try:
+        # Ensure system time is correct after reboot (run once per boot)
+        def ensure_time_synced(marker_path='/var/run/power-monitor-time-synced'):
+            try:
+                if os.path.exists(marker_path):
+                    return
+                # Prefer to only attempt if ntpd is available
+                subprocess.run(['ntpd', '-d', '-q', '-p', 'pool.ntp.org'], check=False)
+                # Create marker so we don't run again until reboot
+                try:
+                    Path(os.path.dirname(marker_path)).mkdir(parents=True, exist_ok=True)
+                    Path(marker_path).write_text(datetime.now().isoformat())
+                except Exception:
+                    logger.debug('Could not write ntp marker file')
+            except FileNotFoundError:
+                logger.warning('ntpd not found; skipping time sync')
+            except Exception as e:
+                logger.error(f'Error while syncing time: {e}')
+
+        ensure_time_synced()
         # Load configuration
         config = get_config()
         logger.info("Starting multi-entity data collection")

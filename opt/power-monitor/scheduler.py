@@ -9,6 +9,8 @@ Runs aggregation and GitHub sync tasks at scheduled times:
 import sys
 import time
 import logging
+import os
+import subprocess
 from pathlib import Path
 from datetime import datetime, time as dt_time
 from typing import Callable
@@ -170,6 +172,24 @@ def main():
     data_dir = Path(args.data_dir) if args.data_dir else repo_root / 'var' / 'www' / 'html'
     config_path = Path(args.config) if args.config else repo_root / 'opt' / 'power-monitor' / 'config.json'
     
+    # Ensure the system clock is accurate after boot (run once)
+    def ensure_time_synced(marker_path='/var/run/power-monitor-time-synced'):
+        try:
+            if os.path.exists(marker_path):
+                return
+            subprocess.run(['ntpd', '-d', '-q', '-p', 'pool.ntp.org'], check=False)
+            try:
+                Path(os.path.dirname(marker_path)).mkdir(parents=True, exist_ok=True)
+                Path(marker_path).write_text(datetime.now().isoformat())
+            except Exception:
+                logger.debug('Could not write ntp marker file')
+        except FileNotFoundError:
+            logger.warning('ntpd not found; skipping time sync')
+        except Exception as e:
+            logger.error(f'Error while syncing time: {e}')
+
+    ensure_time_synced()
+
     scheduler = NightlyScheduler(data_dir, config_path)
     
     if args.once:
