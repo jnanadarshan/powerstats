@@ -267,11 +267,47 @@ log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━�
 log_info "${BLUE}STEP 5: Validating Home Assistant API Access${NC}"
 log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 
-# Extract HA config from config.json
-HA_URL=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['url'])")
-HA_TOKEN=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['token'])")
-HA_POWER_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['power_sensor'])")
-HA_SOLAR_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['solar_sensor'])")
+# Extract HA config from config.json (use safe lookups to avoid KeyError)
+HA_URL=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+ha=cfg.get('homeassistant',{})
+print(ha.get('url',''))
+PY
+)
+HA_TOKEN=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+ha=cfg.get('homeassistant',{})
+print(ha.get('token',''))
+PY
+)
+HA_POWER_ENTITY=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+ha=cfg.get('homeassistant',{})
+ents=ha.get('entities',{})
+print(ents.get('power_sensor',''))
+PY
+)
+HA_SOLAR_ENTITY=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+ha=cfg.get('homeassistant',{})
+ents=ha.get('entities',{})
+print(ents.get('solar_sensor',''))
+PY
+)
+
+# Warn if HA configuration appears incomplete
+if [ -z "$HA_URL" ] || [ -z "$HA_TOKEN" ]; then
+    log_warn "Home Assistant URL or token not set in /opt/power-monitor/config.json"
+    log_warn "Please populate 'homeassistant.url' and 'homeassistant.token' in config.json"
+fi
+if [ -z "$HA_POWER_ENTITY" ] || [ -z "$HA_SOLAR_ENTITY" ]; then
+    log_warn "Home Assistant entity names 'power_sensor' or 'solar_sensor' are missing in config.json -> homeassistant.entities"
+    log_warn "Example: \"entities\": { \"power_sensor\": \"sensor.live_power\", \"solar_sensor\": \"sensor.solar_today\" }"
+fi
 
 log_info "Testing Home Assistant connection (timeout: 10 seconds)..."
 
