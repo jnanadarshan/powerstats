@@ -1,0 +1,50 @@
+{
+  "homeassistant": {
+    "url": "http://homeassistant.local:8123",
+    "token": "YOUR_HOME_ASSISTANT_LONG_LIVED_ACCESS_TOKEN",
+    "entities": {
+      "power_sensor": "sensor.power_consumption",
+      "solar_sensor": "sensor.solar_generation"
+    },
+    "note": "Create long-lived access token at: http://homeassistant.local:8123/profile (scroll to bottom)"
+  },
+  "github": {
+    "token": "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN",
+    "repo": "username/repo-name",
+    "branch": "main",
+    "user": {
+      "name": "Your Name",
+      "email": "your.email@example.com"
+    },
+    "note": "Create token with 'repo' permissions at: https://github.com/settings/tokens/new"
+  },
+  "data": {
+    "retention_days": 7,
+    "collection_interval_minutes": 10
+  },
+  "admin": {
+    "username": "admin",
+    "password_hash": "changeme_placeholder",
+    "note": "This will be auto-generated during installation"
+  },
+  "paths": {
+    "state_file": "/etc/monitor.conf",
+    "web_root": "/var/www/html",
+    "data_dir": "/var/www/html"
+  },
+  "comments": {
+    "info": "Power monitoring system maintains 4 JSON files",
+    "files": {
+      "daily.json": "Last 24 hours (stored locally)",
+      "weekly.json": "Last 7 days (stored locally)",
+      "monthly.json": "Last 30 days (synced to GitHub)",
+      "yearly.json": "Last 365 days (synced to GitHub)"
+    },
+    "setup_instructions": [
+      "1. Clone this repository: git clone https://github.com/username/repo-name.git",
+      "2. Edit this config.json file with your credentials",
+      "3. Run installation: sudo sh install.sh",
+      "4. Access dashboard at: http://device-ip/"
+    ]
+  }
+}
