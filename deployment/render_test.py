@@ -121,9 +121,86 @@ statistics = {
     'total_kwh': round(total_kwh, 2)
 }
 
+# For new multi-JSON architecture, write all 4 JSON files instead of embedding data
+# The dashboard will fetch these files dynamically
+daily_data = {
+    'data_points': today_points if today_points else points[-144:],  # Last 24 hours
+    'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+    'date': datetime.now(timezone.utc).date().isoformat()
+}
+
+with open(web_root / 'daily.json', 'w', encoding='utf-8') as f:
+    json.dump(daily_data, f, indent=2)
+print(f"Wrote daily.json with {len(daily_data['data_points'])} points")
+
+# Aggregate to weekly (last 7 days, hourly)
+hourly_map = {}
+for p in points:
+    dt = datetime.fromisoformat(p['timestamp'].replace('Z', '+00:00'))
+    hour_key = dt.replace(minute=0, second=0, microsecond=0)
+    if hour_key not in hourly_map:
+        hourly_map[hour_key] = {'sum': 0, 'count': 0}
+    hourly_map[hour_key]['sum'] += p['value']
+    hourly_map[hour_key]['count'] += 1
+
+weekly_points = [
+    {
+        'timestamp': hour.isoformat().replace('+00:00', 'Z'),
+        'value': round(data['sum'] / data['count'], 2),
+        'unit': 'W'
+    }
+    for hour, data in sorted(hourly_map.items())
+]
+
+weekly_data = {
+    'data_points': weekly_points,
+    'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+}
+
+with open(web_root / 'weekly.json', 'w', encoding='utf-8') as f:
+    json.dump(weekly_data, f, indent=2)
+print(f"Wrote weekly.json with {len(weekly_points)} points")
+
+# Aggregate to monthly (last 30 days, daily) - simulate
+daily_map = {}
+for p in points:
+    dt = datetime.fromisoformat(p['timestamp'].replace('Z', '+00:00'))
+    day_key = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    if day_key not in daily_map:
+        daily_map[day_key] = {'sum': 0, 'count': 0}
+    daily_map[day_key]['sum'] += p['value']
+    daily_map[day_key]['count'] += 1
+
+monthly_points = [
+    {
+        'timestamp': day.isoformat().replace('+00:00', 'Z'),
+        'value': round(data['sum'] / data['count'], 2),
+        'unit': 'W'
+    }
+    for day, data in sorted(daily_map.items())[-30:]  # Last 30 days
+]
+
+monthly_data = {
+    'data_points': monthly_points,
+    'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+}
+
+with open(web_root / 'monthly.json', 'w', encoding='utf-8') as f:
+    json.dump(monthly_data, f, indent=2)
+print(f"Wrote monthly.json with {len(monthly_points)} points")
+
+# Yearly data (simulate by reusing daily aggregates)
+yearly_data = {
+    'data_points': monthly_points,  # For testing, reuse monthly
+    'last_update': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+}
+
+with open(web_root / 'yearly.json', 'w', encoding='utf-8') as f:
+    json.dump(yearly_data, f, indent=2)
+print(f"Wrote yearly.json with {len(monthly_points)} points")
+
+# Render dashboard HTML without embedded data (will fetch JSON files dynamically)
 html = template.render(
-    data_points=json.dumps(points),
-    today_points=json.dumps(today_points),
     statistics=statistics,
     last_update=data['last_update'],
     generation_time=datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')

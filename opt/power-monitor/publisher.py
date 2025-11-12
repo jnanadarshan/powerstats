@@ -116,13 +116,17 @@ class GitHubPublisher:
             return False
     
     def publish_dashboard(self, web_root: str) -> bool:
-        """Publish dashboard files to GitHub Pages"""
+        """Publish dashboard files to GitHub Pages (multi-JSON architecture)"""
         from datetime import datetime
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
+        # New multi-JSON architecture: publish HTML and all 4 JSON files
         files_to_publish = [
             ('index.html', 'index.html', f'Update dashboard - {timestamp}'),
-            ('data.json', 'data.json', f'Update data - {timestamp}')
+            ('daily.json', 'daily.json', f'Update daily data - {timestamp}'),
+            ('weekly.json', 'weekly.json', f'Update weekly data - {timestamp}'),
+            ('monthly.json', 'monthly.json', f'Update monthly data - {timestamp}'),
+            ('yearly.json', 'yearly.json', f'Update yearly data - {timestamp}')
         ]
         
         success = True

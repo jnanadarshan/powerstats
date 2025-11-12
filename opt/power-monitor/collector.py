@@ -132,9 +132,9 @@ class HomeAssistantClient:
 
 
 class DataManager:
-    """Manages data storage and retention"""
+    """Manages data storage - writes to daily.json with midnight rotation"""
     
-    def __init__(self, data_file: str, retention_days: int):
+    def __init__(self, data_file: str, retention_days: int = 1):
         self.data_file = data_file
         self.retention_days = retention_days
         self._ensure_data_file()
@@ -143,12 +143,14 @@ class DataManager:
         """Create data file if it doesn't exist"""
         os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
         if not os.path.exists(self.data_file):
-            self._write_data({'data_points': [], 'last_update': None})
+            self._write_data({'data_points': [], 'last_update': None, 'date': datetime.now().date().isoformat()})
     
     def _write_data(self, data: Dict):
-        """Write data to file"""
-        with open(self.data_file, 'w') as f:
+        """Write data to file atomically"""
+        temp_file = self.data_file + '.tmp'
+        with open(temp_file, 'w') as f:
             json.dump(data, f, indent=2)
+        os.replace(temp_file, self.data_file)
     
     def load_data(self) -> Dict[str, Any]:
         """Load data from file"""
@@ -157,11 +159,26 @@ class DataManager:
                 return json.load(f)
         except (json.JSONDecodeError, FileNotFoundError):
             logger.warning("Data file corrupted or missing, initializing new data")
-            return {'data_points': [], 'last_update': None}
+            return {'data_points': [], 'last_update': None, 'date': datetime.now().date().isoformat()}
+    
+    def _check_midnight_rotation(self, data: Dict) -> Dict:
+        """Check if we need to rotate file at midnight (new day)"""
+        today = datetime.now().date().isoformat()
+        data_date = data.get('date')
+        
+        if data_date != today:
+            # New day detected - rotate/clear the file
+            logger.info(f"Midnight rotation: clearing daily.json (was {data_date}, now {today})")
+            return {'data_points': [], 'last_update': None, 'date': today}
+        
+        return data
     
     def add_data_point(self, timestamp: str, value: float, unit: str = 'W'):
-        """Add a new data point and maintain retention window"""
+        """Add a new data point to daily.json (rotates at midnight)"""
         data = self.load_data()
+        
+        # Check for midnight rotation
+        data = self._check_midnight_rotation(data)
         
         # Add new data point
         data_points = data.get('data_points', [])
@@ -171,11 +188,11 @@ class DataManager:
             'unit': unit
         })
         
-        # Remove old data outside retention window
-        cutoff = datetime.now() - timedelta(days=self.retention_days)
+        # Keep only today's data (from 00:00:00 to now)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         data_points = [
             dp for dp in data_points
-            if datetime.fromisoformat(dp['timestamp'].replace('Z', '+00:00')) > cutoff
+            if datetime.fromisoformat(dp['timestamp'].replace('Z', '+00:00')) >= today_start.replace(tzinfo=None)
         ]
         
         # Sort by timestamp
@@ -184,9 +201,10 @@ class DataManager:
         # Update data
         data['data_points'] = data_points
         data['last_update'] = datetime.now().isoformat()
+        data['date'] = datetime.now().date().isoformat()
         
         self._write_data(data)
-        logger.info(f"Added data point: {value}{unit} at {timestamp}, total points: {len(data_points)}")
+        logger.info(f"Added data point: {value}{unit} at {timestamp}, total points today: {len(data_points)}")
         
         return data
     

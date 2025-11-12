@@ -1055,12 +1055,82 @@
     </div>
     
     <script>
-        // Data from backend
-    const dataPoints = {{ data_points|safe }};
-    const todayPoints = {{ today_points|safe }};
+        // Data stores - will be loaded dynamically
+        let dataPoints = [];
+        let todayPoints = [];
+        let weeklyData = [];
+        let monthlyData = [];
+        let yearlyData = [];
+        
+        // Data source mapping for each tab (use lowercase keys to match nav buttons)
+        const DATA_SOURCES = {
+            'today': 'daily.json',
+            '7days': 'weekly.json',
+            '30days': 'monthly.json',
+            '365days': 'yearly.json'
+        };
+        
+        // Current active tab
+        let currentTab = 'Today';
+        
+        // Fetch JSON data from server
+        async function loadDataForTab(tabName) {
+            const filename = DATA_SOURCES[tabName];
+            if (!filename) {
+                console.error('Unknown tab:', tabName);
+                return null;
+            }
+            
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const json = await response.json();
+                return json.data_points || [];
+            } catch (error) {
+                console.error(`Failed to load ${filename}:`, error);
+                return null;
+            }
+        }
+        
+        // Initialize dashboard with data from specific tab
+        async function initializeDashboard(tabName) {
+            currentTab = tabName;
+            const data = await loadDataForTab(tabName);
+            
+            if (!data || data.length === 0) {
+                document.querySelector('.container').innerHTML = 
+                    '<div class="no-data">⏳ No data available yet<br><br>Data collection in progress...<br>Please check back in a few minutes.</div>';
+                return;
+            }
+            
+            // Update global data based on tab
+            const tn = tabName.toLowerCase();
+            if (tn === 'today') {
+                todayPoints = data;
+                dataPoints = data;
+                initTodayCharts();
+            } else if (tn === '7days') {
+                dataPoints = data;
+                weeklyData = data;
+                render7DaysCharts();
+            } else if (tn === '30days') {
+                monthlyData = data;
+                render30DaysChart();
+            } else if (tn === '365days') {
+                yearlyData = data;
+                render365DaysChart();
+            }
+
+            // Update power cut banner (use appropriate dataset)
+            const bannerData = (tabName.toLowerCase() === 'today') ? todayPoints : dataPoints;
+            const allCuts = detectPowerCuts(bannerData);
+            updatePowerCutBanner(allCuts);
+        }
         
         // Tab switching function
-        function switchTab(event, tabName) {
+        async function switchTab(event, tabName) {
             // Hide all tabs
             document.querySelectorAll('.tab-content').forEach(tab => {
                 tab.classList.remove('active');
@@ -1078,6 +1148,9 @@
             
             // Highlight active nav tab
             if (event && event.target) event.target.classList.add('active');
+            
+            // Load data for the new tab
+            await initializeDashboard(tabName);
         }
         
         // Power cut detection function
@@ -1149,10 +1222,13 @@
             }
         }
         
-        // Initialize
-        if (dataPoints.length === 0) {
-            document.querySelector('.container').innerHTML = '<div class="no-data">⏳ No data available yet<br><br>Data collection in progress...<br>Please check back in a few minutes.</div>';
-        } else {
+        // Render 7 Days charts
+        function render7DaysCharts() {
+            if (!dataPoints || dataPoints.length === 0) {
+                console.warn('No data for 7 Days view');
+                return;
+            }
+            
             // Detect power cuts
             const allCuts = detectPowerCuts(dataPoints);
             updatePowerCutBanner(allCuts);
@@ -1466,9 +1542,6 @@
                 options: { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { title: { display: true, text: 'Power Factor' }, min: 0.6, max: 1.0 } } }
             });
 
-            // Initialize Today charts (separate from 7 Days)
-            initTodayCharts();
-
             // Populate small stats: voltage min/max and total kWh
             const voltValues = voltageSeries.map(v=>v.y);
             const vMin = Math.min(...voltValues).toFixed(1);
@@ -1477,6 +1550,32 @@
             // create or set min/max elements if present
             const vmEl = document.getElementById('voltageMin'); if (vmEl) vmEl.textContent = vMin + ' V';
             const vMEl = document.getElementById('voltageMax'); if (vMEl) vMEl.textContent = vMax + ' V';
+        }
+        
+        // Render 30 Days chart
+        function render30DaysChart() {
+            if (!monthlyData || monthlyData.length === 0) {
+                console.warn('No data for 30 Days view');
+                return;
+            }
+            
+            // Monthly data should already be daily averages from aggregator
+            const dailyAverages = monthlyData.map(dp => ({
+                x: dp.timestamp,
+                y: dp.value
+            }));
+            
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            };
             
             // 30-Day Chart (using daily averages)
             new Chart(document.getElementById('chart30'), {
@@ -1533,22 +1632,44 @@
                     }
                 }
             });
+        }
+        
+        // Render 365 Days chart
+        function render365DaysChart() {
+            if (!yearlyData || yearlyData.length === 0) {
+                console.warn('No data for 365 Days view');
+                return;
+            }
             
-            // 365-Day Chart (monthly aggregation)
-            const monthlyData = {};
-            dailyAverages.forEach(day => {
-                const month = day.x.substring(0, 7); // YYYY-MM
-                if (!monthlyData[month]) {
-                    monthlyData[month] = { sum: 0, count: 0 };
+            // Yearly data should already be daily averages from aggregator
+            // Aggregate to monthly for display
+            const monthlyDataMap = {};
+            yearlyData.forEach(dp => {
+                const date = new Date(dp.timestamp);
+                const month = date.toISOString().substring(0, 7); // YYYY-MM
+                if (!monthlyDataMap[month]) {
+                    monthlyDataMap[month] = { sum: 0, count: 0 };
                 }
-                monthlyData[month].sum += day.y;
-                monthlyData[month].count += 1;
+                monthlyDataMap[month].sum += dp.value;
+                monthlyDataMap[month].count += 1;
             });
             
-            const monthlyAverages = Object.entries(monthlyData).map(([month, data]) => ({
+            const monthlyAverages = Object.entries(monthlyDataMap).map(([month, data]) => ({
                 x: month + '-01',
                 y: data.sum / data.count
             }));
+            
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            };
             
             new Chart(document.getElementById('chart365'), {
                 type: 'bar',
@@ -1599,6 +1720,11 @@
                 }
             });
         }
+        
+        // Page load - initialize with today tab
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeDashboard('today');
+        });
     </script>
 </body>
 </html>

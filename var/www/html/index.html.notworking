@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Monitor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #f4f2ec 0%, #fbf7ea 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        header { margin-bottom: 24px; }
+        h1 { font-size: 2em; font-weight: 600; margin-bottom: 4px; }
+        .subtitle { font-size: 0.9em; color: #666; }
+        
+        .tabs { display: flex; gap: 8px; margin: 20px 0; border-bottom: 2px solid #ddd; flex-wrap: wrap; }
+        .tab-btn { 
+            padding: 12px 20px; background: none; border: none; cursor: pointer; font-size: 1em;
+            color: #666; border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.2s;
+        }
+        .tab-btn:hover { color: #333; }
+        .tab-btn.active { color: #f4c84b; border-bottom-color: #f4c84b; font-weight: 600; }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+        .stat-card {
+            background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 4px solid #f4c84b;
+        }
+        .stat-label { font-size: 0.9em; color: #666; margin-bottom: 4px; }
+        .stat-value { font-size: 2em; font-weight: 600; }
+        .stat-unit { font-size: 0.5em; color: #999; }
+        
+        .chart-container { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin: 16px 0; }
+        .chart-container h3 { margin-bottom: 16px; font-size: 1.1em; }
+        canvas { max-height: 400px; }
+        
+        .no-data { text-align: center; padding: 40px 20px; color: #999; font-size: 1.1em; }
+        .loading { text-align: center; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Power Monitor Dashboard</h1>
+            <p class="subtitle">Real-time power consumption monitoring</p>
+        </header>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('today')">Today</button>
+            <button class="tab-btn" onclick="switchTab('7days')">7 Days</button>
+            <button class="tab-btn" onclick="switchTab('30days')">30 Days</button>
+            <button class="tab-btn" onclick="switchTab('365days')">365 Days</button>
+        </div>
+        
+        <div id="today" class="tab-content active">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Current Power</div>
+                    <div class="stat-value" id="current-today">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Average</div>
+                    <div class="stat-value" id="avg-today">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak</div>
+                    <div class="stat-value" id="peak-today">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Energy Used</div>
+                    <div class="stat-value" id="energy-today">-- <span class="stat-unit">kWh</span></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Today's Power Consumption</h3>
+                <canvas id="chart-today"></canvas>
+            </div>
+        </div>
+        
+        <div id="7days" class="tab-content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Average Power</div>
+                    <div class="stat-value" id="avg-7days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak</div>
+                    <div class="stat-value" id="peak-7days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Energy</div>
+                    <div class="stat-value" id="energy-7days">-- <span class="stat-unit">kWh</span></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last 7 Days (Hourly)</h3>
+                <canvas id="chart-7days"></canvas>
+            </div>
+        </div>
+        
+        <div id="30days" class="tab-content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Average Power</div>
+                    <div class="stat-value" id="avg-30days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak</div>
+                    <div class="stat-value" id="peak-30days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Energy</div>
+                    <div class="stat-value" id="energy-30days">-- <span class="stat-unit">kWh</span></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last 30 Days (Daily)</h3>
+                <canvas id="chart-30days"></canvas>
+            </div>
+        </div>
+        
+        <div id="365days" class="tab-content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Average Power</div>
+                    <div class="stat-value" id="avg-365days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Peak</div>
+                    <div class="stat-value" id="peak-365days">-- <span class="stat-unit">W</span></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Total Energy</div>
+                    <div class="stat-value" id="energy-365days">-- <span class="stat-unit">kWh</span></div>
+                </div>
+            </div>
+            <div class="chart-container">
+                <h3>Last 365 Days (Daily)</h3>
+                <canvas id="chart-365days"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const DATA_SOURCES = {
+            'today': 'daily.json',
+            '7days': 'weekly.json',
+            '30days': 'monthly.json',
+            '365days': 'yearly.json'
+        };
+
+        let charts = {};
+
+        async function loadData(tabName) {
+            const filename = DATA_SOURCES[tabName];
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const json = await response.json();
+                return json.data_points || [];
+            } catch (error) {
+                console.error(`Failed to load ${filename}:`, error);
+                return [];
+            }
+        }
+
+        function calculateStats(data) {
+            if (!data.length) return { current: 0, avg: 0, peak: 0, energy: 0 };
+            
+            const values = data.map(d => d.value);
+            const current = values[values.length - 1];
+            const avg = values.reduce((a, b) => a + b) / values.length;
+            const peak = Math.max(...values);
+            const energy = (values.reduce((a, b) => a + b) / 60); // Approximate kWh
+            
+            return { current: Math.round(current), avg: Math.round(avg), peak: Math.round(peak), energy: energy.toFixed(2) };
+        }
+
+        function renderChart(tabName, data) {
+            if (!data.length) {
+                document.getElementById(`chart-${tabName}`).style.display = 'none';
+                return;
+            }
+
+            const chartId = `chart-${tabName}`;
+            const canvas = document.getElementById(chartId);
+            
+            // Destroy existing chart if any
+            if (charts[chartId]) charts[chartId].destroy();
+            
+            const chartData = data.map(d => ({
+                x: new Date(d.timestamp),
+                y: d.value
+            }));
+
+            charts[chartId] = new Chart(canvas, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Power (W)',
+                        data: chartData,
+                        borderColor: '#f4c84b',
+                        backgroundColor: 'rgba(244, 200, 75, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: tabName === 'today' ? 'hour' : (tabName === '7days' ? 'hour' : 'day') },
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        async function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            
+            // Load and display data
+            const data = await loadData(tabName);
+            const stats = calculateStats(data);
+            
+            document.getElementById(`current-${tabName}`).textContent = `${stats.current} W`;
+            document.getElementById(`avg-${tabName}`).textContent = `${stats.avg} W`;
+            document.getElementById(`peak-${tabName}`).textContent = `${stats.peak} W`;
+            document.getElementById(`energy-${tabName}`).textContent = `${stats.energy} kWh`;
+            
+            renderChart(tabName, data);
+        }
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', () => switchTab('today'));
+    </script>
+</body>
+</html>

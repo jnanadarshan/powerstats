@@ -6,8 +6,7 @@
   },
   "github": {
     "token": "ghp_your_github_personal_access_token",
-    "repo_owner": "your-username",
-    "repo_name": "power-stats-pages",
+    "repo": "your-username/power-stats-data",
     "branch": "main"
   },
   "data": {
@@ -21,6 +20,9 @@
   "paths": {
     "state_file": "/etc/monitor.conf",
     "web_root": "/var/www/html",
-    "data_file": "/var/www/html/data.json"
+    "data_dir": "/var/www/html"
+  },
+  "comments": {
+    "data_files": "System maintains 4 JSON files: daily.json (24h), weekly.json (7d local), monthly.json (30d GitHub), yearly.json (365d GitHub)"
   }
 }

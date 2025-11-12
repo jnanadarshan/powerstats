@@ -73,8 +73,8 @@ class ConfigManager:
             if field not in self.config['github']:
                 raise ValueError(f"Missing github.{field} in config")
         
-        # Validate paths
-        path_required = ['state_file', 'web_root', 'data_file']
+        # Validate paths (data_file is now optional, data_dir can use web_root as fallback)
+        path_required = ['state_file', 'web_root']
         for field in path_required:
             if field not in self.config['paths']:
                 raise ValueError(f"Missing paths.{field} in config")
@@ -158,8 +158,18 @@ class ConfigManager:
     
     @property
     def data_file(self) -> str:
-        """Path to data JSON file"""
-        return self.config['paths']['data_file']
+        """Path to data JSON file (legacy - use data_dir for new multi-JSON architecture)"""
+        return self.config['paths'].get('data_file', '')
+    
+    @property
+    def data_dir(self) -> str:
+        """Path to data directory containing daily/weekly/monthly/yearly JSON files"""
+        return self.config['paths'].get('data_dir', self.config['paths'].get('web_root', ''))
+    
+    @property
+    def gh_repo(self) -> str:
+        """GitHub repository in owner/repo format"""
+        return self.config['github'].get('repo', f"{self.gh_repo_owner}/{self.gh_repo_name}")
     
     def reload(self):
         """Reload configuration from file"""

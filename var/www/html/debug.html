@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard Debug Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+        .test { border: 1px solid #ccc; padding: 15px; margin: 10px 0; background: white; border-radius: 4px; }
+        .success { border-left: 4px solid #4caf50; }
+        .error { border-left: 4px solid #f44336; }
+        .info { border-left: 4px solid #2196f3; }
+        pre { background: #f0f0f0; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Dashboard Debug Test</h1>
+    <div id="results"></div>
+
+    <script>
+        const DATA_SOURCES = {
+            'today': 'daily.json',
+            '7days': 'weekly.json',
+            '30days': 'monthly.json',
+            '365days': 'yearly.json'
+        };
+
+        async function loadDataForTab(tabName) {
+            const filename = DATA_SOURCES[tabName];
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const json = await response.json();
+                return json.data_points || [];
+            } catch (error) {
+                console.error(`Failed to load ${filename}:`, error);
+                return null;
+            }
+        }
+
+        async function runTests() {
+            const results = document.getElementById('results');
+            
+            for (const [tabName, filename] of Object.entries(DATA_SOURCES)) {
+                const data = await loadDataForTab(tabName);
+                
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test';
+                
+                if (data && data.length > 0) {
+                    testDiv.classList.add('success');
+                    testDiv.innerHTML = `
+                        <strong>✅ ${tabName}</strong> (${filename})<br>
+                        <code>
+                        Points: ${data.length}<br>
+                        First: ${data[0].timestamp} @ ${data[0].value}W<br>
+                        Last: ${data[data.length-1].timestamp} @ ${data[data.length-1].value}W
+                        </code>
+                    `;
+                } else {
+                    testDiv.classList.add('error');
+                    testDiv.innerHTML = `
+                        <strong>❌ ${tabName}</strong> (${filename})<br>
+                        <code>No data loaded or empty response</code>
+                    `;
+                }
+                
+                results.appendChild(testDiv);
+            }
+
+            const statusDiv = document.createElement('div');
+            statusDiv.className = 'test info';
+            statusDiv.innerHTML = `
+                <strong>ℹ️ Test Complete</strong><br>
+                <code>If all tabs show ✅, the dashboard should load data correctly.</code>
+            `;
+            results.appendChild(statusDiv);
+        }
+
+        // Run tests when page loads
+        window.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html>
