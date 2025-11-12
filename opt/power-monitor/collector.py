@@ -80,34 +80,49 @@ class MaintenanceMode:
 class HomeAssistantClient:
     """Client for fetching data from Home Assistant"""
     
-    def __init__(self, url: str, token: str, entity_id: str):
+    def __init__(self, url: str, token: str, entities: Optional[Dict[str, str]] = None):
         self.url = url.rstrip('/')
         self.token = token
-        self.entity_id = entity_id
+        self.entities = entities or {}
         self.session = requests.Session()
         self.session.headers.update({
             'Authorization': f'Bearer {token}',
             'Content-Type': 'application/json'
         })
     
-    def get_current_state(self) -> Dict[str, Any]:
-        """Fetch current state of the entity"""
+    def get_current_state(self, entity_id: str) -> Dict[str, Any]:
+        """Fetch current state of a specific entity"""
         try:
             response = self.session.get(
-                f'{self.url}/api/states/{self.entity_id}',
+                f'{self.url}/api/states/{entity_id}',
                 timeout=10
             )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching current state: {e}")
+            logger.error(f"Error fetching current state for {entity_id}: {e}")
             raise
     
-    def get_history(self, start_time: datetime, end_time: Optional[datetime] = None) -> List[Dict]:
-        """Fetch historical data for the entity"""
+    def get_all_current_states(self) -> Dict[str, Dict[str, Any]]:
+        """Fetch current states of all configured entities"""
+        states = {}
+        for entity_name, entity_id in self.entities.items():
+            if not entity_id:
+                logger.warning(f"Entity {entity_name} not configured, skipping")
+                continue
+            try:
+                states[entity_name] = self.get_current_state(entity_id)
+                logger.info(f"Fetched {entity_name}: {states[entity_name]['state']}")
+            except Exception as e:
+                logger.error(f"Failed to fetch {entity_name} ({entity_id}): {e}")
+                # Continue with other entities even if one fails
+        return states
+    
+    def get_history(self, entity_id: str, start_time: datetime, end_time: Optional[datetime] = None) -> List[Dict]:
+        """Fetch historical data for a specific entity"""
         try:
             params = {
-                'filter_entity_id': self.entity_id,
+                'filter_entity_id': entity_id,
                 'minimal_response': 'true',
                 'significant_changes_only': 'false'
             }
@@ -127,172 +142,74 @@ class HomeAssistantClient:
             # Return flattened list of states
             return data[0] if data else []
         except requests.exceptions.RequestException as e:
-            logger.error(f"Error fetching history: {e}")
+            logger.error(f"Error fetching history for {entity_id}: {e}")
             raise
 
 
 class DataManager:
-    """Manages data storage - writes to daily.json with midnight rotation"""
+    """Manages data storage - writes to daily.json"""
     
-    def __init__(self, data_file: str, retention_days: int = 1):
+    def __init__(self, data_file: str, max_points: int = 144): # 144 points for 24 hours at 10-min intervals
         self.data_file = data_file
-        self.retention_days = retention_days
+        self.max_points = max_points
         self._ensure_data_file()
     
     def _ensure_data_file(self):
         """Create data file if it doesn't exist"""
-        os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
         if not os.path.exists(self.data_file):
-            self._write_data({'data_points': [], 'last_update': None, 'date': datetime.now().date().isoformat()})
+            os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
+            with open(self.data_file, 'w') as f:
+                json.dump([], f)
     
-    def _write_data(self, data: Dict):
+    def _write_data(self, data: List[Dict]):
         """Write data to file atomically"""
         temp_file = self.data_file + '.tmp'
         with open(temp_file, 'w') as f:
-            json.dump(data, f, indent=2)
+            json.dump(data, f, indent=4)
         os.replace(temp_file, self.data_file)
     
-    def load_data(self) -> Dict[str, Any]:
+    def load_data(self) -> List[Dict[str, Any]]:
         """Load data from file"""
         try:
             with open(self.data_file, 'r') as f:
-                return json.load(f)
+                # Handle empty file case
+                content = f.read()
+                if not content:
+                    return []
+                return json.loads(content)
         except (json.JSONDecodeError, FileNotFoundError):
-            logger.warning("Data file corrupted or missing, initializing new data")
-            return {'data_points': [], 'last_update': None, 'date': datetime.now().date().isoformat()}
-    
-    def _check_midnight_rotation(self, data: Dict) -> Dict:
-        """Check if we need to rotate file at midnight (new day)"""
-        today = datetime.now().date().isoformat()
-        data_date = data.get('date')
+            logger.warning("Data file corrupted or missing, initializing new data file.")
+            self._ensure_data_file()
+            return []
+
+    def add_data_point(self, timestamp: str, entities_data: Dict[str, Dict[str, Any]]):
+        """Add a new multi-entity data point to daily.json"""
+        data_points = self.load_data()
         
-        if data_date != today:
-            # New day detected - rotate/clear the file
-            logger.info(f"Midnight rotation: clearing daily.json (was {data_date}, now {today})")
-            return {'data_points': [], 'last_update': None, 'date': today}
+        # Build the flat data point object
+        new_data_point = {'timestamp': timestamp}
         
-        return data
-    
-    def add_data_point(self, timestamp: str, value: float, unit: str = 'W'):
-        """Add a new data point to daily.json (rotates at midnight)"""
-        data = self.load_data()
+        for entity_name, entity_state in entities_data.items():
+            try:
+                # Use the entity_name as the key (e.g., "power", "voltage")
+                value = float(entity_state.get('state', 0))
+                new_data_point[entity_name] = round(value, 2)
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse value for {entity_name}. Setting to 0.")
+                new_data_point[entity_name] = 0
         
-        # Check for midnight rotation
-        data = self._check_midnight_rotation(data)
+        # Append new data
+        data_points.append(new_data_point)
         
-        # Add new data point
-        data_points = data.get('data_points', [])
-        data_points.append({
-            'timestamp': timestamp,
-            'value': value,
-            'unit': unit
-        })
-        
-        # Keep only today's data (from 00:00:00 to now)
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        data_points = [
-            dp for dp in data_points
-            if datetime.fromisoformat(dp['timestamp'].replace('Z', '+00:00')) >= today_start.replace(tzinfo=None)
-        ]
-        
-        # Sort by timestamp
+        # Sort by timestamp to be safe
         data_points.sort(key=lambda x: x['timestamp'])
         
-        # Update data
-        data['data_points'] = data_points
-        data['last_update'] = datetime.now().isoformat()
-        data['date'] = datetime.now().date().isoformat()
-        
-        self._write_data(data)
-        logger.info(f"Added data point: {value}{unit} at {timestamp}, total points today: {len(data_points)}")
-        
-        return data
-    
-    def get_statistics(self, data_points: List[Dict]) -> Dict[str, float]:
-        """Calculate statistics from data points"""
-        if not data_points:
-            return {
-                'current': 0,
-                'average': 0,
-                'min': 0,
-                'max': 0,
-                'total_kwh': 0
-            }
-        
-        values = [dp['value'] for dp in data_points]
-        
-        # Calculate total kWh (assuming 10-minute intervals)
-        interval_hours = 10 / 60  # 10 minutes in hours
-        total_kwh = sum(values) * interval_hours / 1000
-        
-        return {
-            'current': values[-1],
-            'average': sum(values) / len(values),
-            'min': min(values),
-            'max': max(values),
-            'total_kwh': round(total_kwh, 2)
-        }
-
-
-class HTMLGenerator:
-    """Generates HTML dashboard from data"""
-    
-    def __init__(self, template_dir: str):
-        self.env = Environment(
-            loader=FileSystemLoader(template_dir),
-            autoescape=select_autoescape(['html', 'xml'])
-        )
-    
-    def generate(self, data: Dict[str, Any], output_file: str):
-        """Generate HTML file from template"""
-        try:
-            template = self.env.get_template('dashboard.html')
+        # Trim the data to max_points
+        if len(data_points) > self.max_points:
+            data_points = data_points[-self.max_points:]
             
-            # Prepare data for template
-            data_points = data.get('data_points', [])
-            stats = DataManager._get_statistics_static(data_points)
-            
-            html_content = template.render(
-                data_points=json.dumps(data_points),
-                statistics=stats,
-                last_update=data.get('last_update', 'Never'),
-                generation_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            )
-            
-            with open(output_file, 'w') as f:
-                f.write(html_content)
-            
-            logger.info(f"Generated HTML dashboard: {output_file}")
-        except Exception as e:
-            logger.error(f"Error generating HTML: {e}")
-            raise
-
-
-# Static method for statistics (for use in HTMLGenerator)
-def _get_statistics_static(data_points: List[Dict]) -> Dict[str, float]:
-    """Calculate statistics from data points"""
-    if not data_points:
-        return {
-            'current': 0,
-            'average': 0,
-            'min': 0,
-            'max': 0,
-            'total_kwh': 0
-        }
-    
-    values = [dp['value'] for dp in data_points]
-    interval_hours = 10 / 60
-    total_kwh = sum(values) * interval_hours / 1000
-    
-    return {
-        'current': round(values[-1], 2),
-        'average': round(sum(values) / len(values), 2),
-        'min': round(min(values), 2),
-        'max': round(max(values), 2),
-        'total_kwh': round(total_kwh, 2)
-    }
-
-DataManager._get_statistics_static = staticmethod(_get_statistics_static)
+        self._write_data(data_points)
+        logger.info(f"Added multi-entity data point at {timestamp}. Total points: {len(data_points)}")
 
 
 def main():
@@ -300,7 +217,7 @@ def main():
     try:
         # Load configuration
         config = get_config()
-        logger.info("Starting data collection")
+        logger.info("Starting multi-entity data collection")
         
         # Check maintenance mode
         maintenance = MaintenanceMode(config.state_file)
@@ -312,35 +229,37 @@ def main():
         ha_client = HomeAssistantClient(
             config.ha_url,
             config.ha_token,
-            config.ha_entity_id
+            config.ha_entities
         )
+        
+        # The collector only writes to the daily file.
+        daily_data_file = os.path.join(config.web_root, 'daily.json')
         
         data_manager = DataManager(
-            config.data_file,
-            config.retention_days
+            daily_data_file,
+            max_points=144 # 24 hours * 6 points/hour
         )
         
-        # Fetch current state
-        state = ha_client.get_current_state()
-        timestamp = state['last_updated']
-        value = float(state['state'])
-        unit = state['attributes'].get('unit_of_measurement', 'W')
+        # Fetch current states for all entities
+        entities_data = ha_client.get_all_current_states()
         
-        logger.info(f"Fetched current state: {value}{unit}")
+        if not entities_data:
+            logger.warning("No data fetched from Home Assistant. Skipping data point addition.")
+            return 1
+
+        # Use a consistent timestamp for this collection event
+        timestamp = datetime.now().isoformat()
         
-        # Add data point
-        data = data_manager.add_data_point(timestamp, value, unit)
+        logger.info(f"Fetched states for {len(entities_data)} entities at {timestamp}")
+        for entity_name, entity_state in entities_data.items():
+            value = entity_state.get('state', 'N/A')
+            unit = entity_state.get('attributes', {}).get('unit_of_measurement', '')
+            logger.info(f"  {entity_name}: {value}{unit}")
         
-        # Generate HTML
-        html_gen = HTMLGenerator(
-            os.path.join(os.path.dirname(__file__), 'templates')
-        )
-        html_gen.generate(
-            data,
-            os.path.join(config.web_root, 'index.html')
-        )
+        # Add data point with all entity values
+        data_manager.add_data_point(timestamp, entities_data)
         
-        logger.info("Collection completed successfully")
+        logger.info("Multi-entity collection completed successfully")
         return 0
         
     except Exception as e:

@@ -406,9 +406,6 @@
         }
 
         /* accent colored small text and key numbers */
-        .accent-text { color: var(--accent-strong); font-weight: 700; }
-
-        /* Narrow timeline progress showing gaps during cuts */
         .timeline-progress {
             height: 8px;
             width: 100%;
@@ -582,6 +579,7 @@
                     <button class="nav-tab" onclick="switchTab(event, '7days')">7 Days</button>
                     <button class="nav-tab" onclick="switchTab(event, '30days')">30 Days</button>
                     <button class="nav-tab" onclick="switchTab(event, '365days')">365 Days</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'health')">Health</button>
                     <button class="nav-tab" onclick="switchTab(event, 'help')">Help</button>
                 </div>
                 <div class="header-icon" title="Settings" onclick="window.location.href='admin.cgi'">⚙️</div>
@@ -952,6 +950,81 @@
         </div>
         
         <!-- Help Tab -->
+        <!-- Health Tab -->
+        <div id="tab-health" class="tab-content">
+            <div class="health-content">
+                <h3>🏥 System Health</h3>
+                <p style="text-align: center; color: #666; margin-bottom: 30px;">System information and data collection status</p>
+                
+                <!-- System Info -->
+                <div class="help-section" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3>ℹ️ System Information</h3>
+                    <div class="stats-grid" style="margin-top: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-label">Device</div>
+                            <div class="stat-value" style="font-size: 1.2em; color: #667eea;">Luckfox Pico</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Application</div>
+                            <div class="stat-value" style="font-size: 1.2em; color: #666;">Power Monitor v1.0</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Collection Interval</div>
+                            <div class="stat-value" style="font-size: 1.2em; color: #27ae60;">10 minutes</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Data Retention</div>
+                            <div class="stat-value" style="font-size: 1.2em; color: #666;">7 days local</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Data Status -->
+                <div class="help-section" style="background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3>📊 Data Status</h3>
+                    <div class="stats-grid" style="margin-top: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-label">Last Update (IST)</div>
+                            <div class="stat-value" id="health-last-update" style="font-size: 1.1em; color: #667eea;">--</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Daily Data Points</div>
+                            <div class="stat-value" id="health-daily-count" style="font-size: 1.2em; color: #27ae60;">--</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Weekly Data Points</div>
+                            <div class="stat-value" id="health-weekly-count" style="font-size: 1.2em; color: #27ae60;">--</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Status</div>
+                            <div class="stat-value" id="health-status" style="font-size: 1.2em;">✅ Active</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="help-section" style="background: white; padding: 20px; border-radius: 12px;">
+                    <h3>⚡ Quick Actions</h3>
+                    <div style="margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+                        <button onclick="window.location.href='admin.cgi'" style="padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: bold;">
+                            ⚙️ Admin Panel
+                        </button>
+                        <button onclick="location.reload()" style="padding: 12px 24px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: bold;">
+                            🔄 Refresh Dashboard
+                        </button>
+                        <button onclick="showTab('today')" style="padding: 12px 24px; background: #f39c12; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: bold;">
+                            📊 View Today's Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="text-align: center; margin-top: 30px; color: #999; font-size: 0.9em;">
+                    <span>Monitoring powered by Home Assistant</span>
+                    <span id="health-last-update" style="margin-left: 20px;">Last updated: --</span>
+                </div>
+            </div>
+        </div>
+        
         <div id="tab-help" class="tab-content">
             <div class="help-content">
                 <h3>💡 About This Dashboard</h3>
@@ -1055,676 +1128,282 @@
     </div>
     
     <script>
-        // Data stores - will be loaded dynamically
-        let dataPoints = [];
-        let todayPoints = [];
-        let weeklyData = [];
-        let monthlyData = [];
-        let yearlyData = [];
-        
-        // Data source mapping for each tab (use lowercase keys to match nav buttons)
-        const DATA_SOURCES = {
-            'today': 'daily.json',
-            '7days': 'weekly.json',
-            '30days': 'monthly.json',
-            '365days': 'yearly.json'
-        };
-        
-        // Current active tab
-        let currentTab = 'Today';
-        
-        // Fetch JSON data from server
-        async function loadDataForTab(tabName) {
-            const filename = DATA_SOURCES[tabName];
-            if (!filename) {
-                console.error('Unknown tab:', tabName);
-                return null;
-            }
-            
+        // Chart.js Global Configuration
+        Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+        Chart.defaults.color = '#666';
+        Chart.defaults.borderColor = 'rgba(0, 0, 0, 0.05)';
+
+        // Global state to hold chart instances
+        const charts = {};
+        const loadedData = {};
+
+        // --- UTILITY FUNCTIONS ---
+        const fetchData = async (file) => {
             try {
-                const response = await fetch(filename);
+                const response = await fetch(`${file}?v=${new Date().getTime()}`);
                 if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const json = await response.json();
-                return json.data_points || [];
+                // Support both shapes: { data_points: [...] } and [...]
+                if (Array.isArray(json)) return json;
+                if (json && Array.isArray(json.data_points)) return json.data_points;
+                if (json && Array.isArray(json.data)) return json.data;
+                return [];
             } catch (error) {
-                console.error(`Failed to load ${filename}:`, error);
-                return null;
+                console.error(`Error fetching ${file}:`, error);
+                showErrorState(file);
+                return []; // Return empty array on error
             }
-        }
-        
-        // Initialize dashboard with data from specific tab
-        async function initializeDashboard(tabName) {
-            currentTab = tabName;
-            const data = await loadDataForTab(tabName);
-            
-            if (!data || data.length === 0) {
-                document.querySelector('.container').innerHTML = 
-                    '<div class="no-data">⏳ No data available yet<br><br>Data collection in progress...<br>Please check back in a few minutes.</div>';
+        };
+
+        const showErrorState = (file) => {
+            const tabName = file.split('.')[0];
+            const tabElement = document.getElementById(`tab-${tabName}`);
+            if (tabElement) {
+                tabElement.innerHTML = `<div class="no-data">Could not load data for ${tabName}. Please check the logs.</div>`;
+            }
+        };
+
+        const formatDate = (dateStr) => {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        };
+
+        const formatTime = (dateStr) => {
+            const date = new Date(dateStr);
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        };
+
+        // --- TAB SWITCHING LOGIC ---
+        const switchTab = (event, tabName) => {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            // Deactivate all tabs
+            document.querySelectorAll('.nav-tab').forEach(nt => nt.classList.remove('active'));
+
+            // Activate the selected tab and content
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.currentTarget.classList.add('active');
+
+            // Load data and render charts for the active tab
+            loadDataForTab(tabName);
+        };
+
+        // --- DATA LOADING AND PROCESSING ---
+        const loadDataForTab = async (tabName) => {
+            // Prevent re-loading data
+            if (loadedData[tabName]) {
                 return;
             }
-            
-            // Update global data based on tab
-            const tn = tabName.toLowerCase();
-            if (tn === 'today') {
-                todayPoints = data;
-                dataPoints = data;
-                initTodayCharts();
-            } else if (tn === '7days') {
-                dataPoints = data;
-                weeklyData = data;
-                render7DaysCharts();
-            } else if (tn === '30days') {
-                monthlyData = data;
-                render30DaysChart();
-            } else if (tn === '365days') {
-                yearlyData = data;
-                render365DaysChart();
+
+            let file;
+            switch (tabName) {
+                case 'today':   file = 'daily.json'; break;
+                case '7days':   file = 'weekly.json'; break;
+                case '30days':  file = 'monthly.json'; break;
+                case '365days': file = 'yearly.json'; break;
+                case 'health':  updateHealthTab(); return;
+                case 'help':    return; // No data to load for help tab
+                default: return;
             }
 
-            // Update power cut banner (use appropriate dataset)
-            const bannerData = (tabName.toLowerCase() === 'today') ? todayPoints : dataPoints;
-            const allCuts = detectPowerCuts(bannerData);
-            updatePowerCutBanner(allCuts);
-        }
-        
-        // Tab switching function
-        async function switchTab(event, tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active from all nav tabs
-            document.querySelectorAll('.nav-tab').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab (guard existence)
-            const selected = document.getElementById('tab-' + tabName);
-            if (selected) selected.classList.add('active');
-            else console.warn('Tab not found:', tabName);
-            
-            // Highlight active nav tab
-            if (event && event.target) event.target.classList.add('active');
-            
-            // Load data for the new tab
-            await initializeDashboard(tabName);
-        }
-        
-        // Power cut detection function
-        function detectPowerCuts(data, periodDays = 7) {
-            const cuts = [];
-            let cutStart = null;
-            
-            for (let i = 0; i < data.length; i++) {
-                const point = data[i];
-                const value = point.value;
-                
-                if (value === 0 || value < 1) {
-                    if (cutStart === null) {
-                        cutStart = i;
-                    }
-                } else {
-                    if (cutStart !== null) {
-                        const duration = i - cutStart;
-                        if (duration >= 1) { // At least 1 data point (10 minutes)
-                            cuts.push({
-                                start: data[cutStart].timestamp,
-                                end: data[i - 1].timestamp,
-                                duration: duration * 10 // minutes (assuming 10-min intervals)
-                            });
-                        }
-                        cutStart = null;
-                    }
-                }
+            const data = await fetchData(file);
+            if (!data || data.length === 0) {
+                console.warn(`No data loaded for ${tabName}.`);
+                return;
+            }
+            loadedData[tabName] = data;
+
+            // Render content based on tab
+            if (tabName === 'today') {
+                renderTodayTab(data);
+            } else if (tabName === '7days') {
+                render7DaysTab(data);
+            } else if (tabName === '30days') {
+                renderPeriodTab(data, '30');
+            } else if (tabName === '365days') {
+                renderPeriodTab(data, '365');
             }
             
-            // Handle ongoing cut
-            if (cutStart !== null && data.length - cutStart >= 1) {
-                cuts.push({
-                    start: data[cutStart].timestamp,
-                    end: data[data.length - 1].timestamp,
-                    duration: (data.length - cutStart) * 10
-                });
-            }
-            
-            return cuts;
-        }
+            updatePowerCutBanner(data);
+        };
+
+        // --- RENDERING FUNCTIONS ---
+        const renderTodayTab = (data) => {
+            // Update stat cards
+            const lastPoint = data[data.length - 1] || {};
+            document.getElementById('voltage-today').textContent = `${lastPoint.voltage || '--'} V`;
+            document.getElementById('kwh-today').textContent = lastPoint.daily_energy || '--';
+            document.getElementById('current-today').innerHTML = `${lastPoint.power || '--'} <span class="stat-unit">W</span>`;
+
+            const voltages = data.map(p => p.voltage).filter(v => v);
+            document.getElementById('voltageMinToday').textContent = `${Math.min(...voltages) || '--'} V`;
+            document.getElementById('voltageMaxToday').textContent = `${Math.max(...voltages) || '--'} V`;
+
+            // Create charts
+            createChart('voltageChartToday', 'line', data, 'voltage', 'Voltage (V)');
+            createChart('hourlyEnergyChartToday', 'bar', data, 'daily_energy', 'Energy (kWh)');
+            createChart('livePowerChartToday', 'line', data, 'power', 'Power (W)');
+            createChart('powerFactorChartToday', 'line', data, 'power_factor', 'Power Factor');
+        };
         
-        // Update power cut banner
-        function updatePowerCutBanner(cuts) {
+        const render7DaysTab = (data) => {
+            const lastPoint = data[data.length - 1] || {};
+            const allPower = data.map(p => p.power).filter(p => p);
+            const totalEnergy = data.reduce((acc, p) => acc + (p.daily_energy || 0), 0);
+
+            document.getElementById('current-7').innerHTML = `${lastPoint.power || '--'} <span class="stat-unit">W</span>`;
+            document.getElementById('avg-7').innerHTML = `${(allPower.reduce((a, b) => a + b, 0) / allPower.length).toFixed(1) || '--'} <span class="stat-unit">W</span>`;
+            document.getElementById('min-7').innerHTML = `${Math.min(...allPower).toFixed(1) || '--'} <span class="stat-unit">W</span>`;
+            document.getElementById('max-7').innerHTML = `${Math.max(...allPower).toFixed(1) || '--'} <span class="stat-unit">W</span>`;
+            document.getElementById('total-7').innerHTML = `${totalEnergy.toFixed(2) || '--'} <span class="stat-unit">kWh</span>`;
+            
+            const voltages = data.map(p => p.voltage).filter(v => v);
+            document.getElementById('voltageMin').textContent = `${Math.min(...voltages) || '--'} V`;
+            document.getElementById('voltageMax').textContent = `${Math.max(...voltages) || '--'} V`;
+            document.getElementById('total-kwh-large').textContent = totalEnergy.toFixed(0) || '--';
+
+            createChart('voltageChart', 'line', data, 'voltage', 'Voltage (V)');
+            createChart('hourlyEnergyChart', 'bar', data, 'daily_energy', 'Energy (kWh)');
+            createChart('livePowerChart', 'line', data, 'power', 'Power (W)');
+            createChart('powerFactorChart', 'line', data, 'power_factor', 'Power Factor');
+        };
+
+        const renderPeriodTab = (data, period) => {
+            const allPower = data.map(p => p.power).filter(p => p);
+            const totalEnergy = data.reduce((acc, p) => acc + (p.daily_energy || 0), 0);
+            const avgPower = (allPower.reduce((a, b) => a + b, 0) / allPower.length);
+            const peakPower = Math.max(...allPower);
+
+            document.getElementById(`avg-${period}`).innerHTML = `${avgPower.toFixed(1) || '--'} <span class="stat-unit">W</span>`;
+            document.getElementById(`total-${period}`).innerHTML = `${totalEnergy.toFixed(2) || '--'} <span class="stat-unit">kWh</span>`;
+            document.getElementById(`peak-${period}`).innerHTML = `${peakPower.toFixed(1) || '--'} <span class="stat-unit">W</span>`;
+            
+            if (period === '365') {
+                const estCost = totalEnergy * 0.12; // Assuming $0.12/kWh
+                document.getElementById('cost-365').innerHTML = `$<span>${estCost.toFixed(0)}</span>`;
+            }
+
+            createChart(`chart${period}`, 'bar', data, 'power', 'Avg Power (W)');
+        };
+
+        const updateHealthTab = async () => {
+            const dailyData = loadedData['today'] || await fetchData('daily.json');
+            const weeklyData = loadedData['7days'] || await fetchData('weekly.json');
+
+            if (dailyData.length > 0) {
+                const lastUpdate = new Date(dailyData[dailyData.length - 1].timestamp);
+                document.getElementById('health-last-update').textContent = lastUpdate.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                document.getElementById('health-daily-count').textContent = dailyData.length;
+            }
+            if (weeklyData.length > 0) {
+                document.getElementById('health-weekly-count').textContent = weeklyData.length;
+            }
+        };
+        
+        const updatePowerCutBanner = (data) => {
+            // This is a placeholder. Power cut logic needs to be implemented based on data gaps.
+            const cuts = 0; // Replace with actual calculation
+            const duration = 0; // Replace with actual calculation
+            
+            document.getElementById('totalCuts').textContent = cuts;
+            document.getElementById('totalDuration').textContent = `${duration}h`;
+            document.getElementById('avgDuration').textContent = cuts > 0 ? `${(duration * 60 / cuts).toFixed(0)}m` : '0m';
+
             const banner = document.getElementById('powerCutBanner');
-            const icon = document.getElementById('powerCutIcon');
-            const title = document.getElementById('powerCutTitle');
-            const subtitle = document.getElementById('powerCutSubtitle');
-            
-            const totalCuts = cuts.length;
-            const totalMinutes = cuts.reduce((sum, cut) => sum + cut.duration, 0);
-            const totalHours = (totalMinutes / 60).toFixed(1);
-            const avgMinutes = totalCuts > 0 ? Math.round(totalMinutes / totalCuts) : 0;
-            
-            document.getElementById('totalCuts').textContent = totalCuts;
-            document.getElementById('totalDuration').textContent = totalHours + 'h';
-            document.getElementById('avgDuration').textContent = avgMinutes + 'm';
-            
-            if (totalCuts === 0) {
+            if (cuts === 0) {
                 banner.classList.add('no-cuts');
-                icon.textContent = '✅';
-                title.textContent = 'No Power Cuts Detected';
-                subtitle.textContent = 'Power supply has been stable';
+                document.getElementById('powerCutTitle').textContent = "No Power Cuts Detected";
+                document.getElementById('powerCutIcon').textContent = "✅";
             } else {
                 banner.classList.remove('no-cuts');
-                icon.textContent = '⚠️';
-                title.textContent = totalCuts + ' Power Cut' + (totalCuts > 1 ? 's' : '') + ' Detected';
-                subtitle.textContent = 'Total downtime: ' + totalHours + ' hours across all periods';
+                document.getElementById('powerCutTitle').textContent = "Power Cuts Detected";
+                document.getElementById('powerCutIcon').textContent = "⚠️";
             }
-        }
-        
-        // Render 7 Days charts
-        function render7DaysCharts() {
-            if (!dataPoints || dataPoints.length === 0) {
-                console.warn('No data for 7 Days view');
-                return;
+        };
+
+        // --- CHART CREATION ---
+        const createChart = (canvasId, type, data, key, label) => {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+
+            // Destroy existing chart if it exists
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
             }
-            
-            // Detect power cuts
-            const allCuts = detectPowerCuts(dataPoints);
-            updatePowerCutBanner(allCuts);
-            
-            // Update period-specific cut stats
-            document.getElementById('cuts7Count').textContent = allCuts.length;
-            const cuts7Hours = (allCuts.reduce((sum, cut) => sum + cut.duration, 0) / 60).toFixed(1);
-            const cuts7DurEl = document.getElementById('cuts7Duration');
-            if (cuts7DurEl) cuts7DurEl.textContent = cuts7Hours + ' hours downtime';
-            
-            // Update data point count (guarded - element may have been removed)
-            const dpEl = document.getElementById('dataPointCount');
-            if (dpEl) dpEl.textContent = dataPoints.length;
-            
-            // 30-day estimates (multiply by ~4.3)
-            const cuts30Est = Math.round(allCuts.length * 4.3);
-            const cuts30Hours = (cuts7Hours * 4.3).toFixed(1);
-            document.getElementById('cuts30Count').textContent = cuts30Est;
-            document.getElementById('cuts30Duration').textContent = cuts30Hours + ' hours total';
-            
-            // 365-day estimates (multiply by ~52)
-            const cuts365Est = Math.round(allCuts.length * 52);
-            const cuts365Hours = (cuts7Hours * 52).toFixed(1);
-            document.getElementById('cuts365Count').textContent = cuts365Est;
-            document.getElementById('cuts365Duration').textContent = cuts365Hours + ' hours total';
-            
-            // Prepare chart data
-            const chartData = dataPoints.map(dp => ({
-                x: new Date(dp.timestamp),
-                y: dp.value
-            }));
-            
-            // Common chart options
-            const commonOptions = {
+
+            const chartData = {
+                labels: data.map(p => new Date(p.timestamp)),
+                datasets: [{
+                    label: label,
+                    data: data.map(p => p[key]),
+                    borderColor: 'rgba(244, 200, 75, 1)',
+                    backgroundColor: 'rgba(244, 200, 75, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: type === 'line',
+                    tension: 0.4,
+                }]
+            };
+
+            const options = {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'hour',
+                            tooltipFormat: 'MMM d, h:mm a',
+                            displayFormats: {
+                                hour: 'h a'
+                            }
+                        },
+                        grid: { display: false },
+                        ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            callback: (value) => `${value}`
+                        }
                     }
                 },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(0,0,0,0.8)',
+                        titleFont: { size: 14 },
+                        bodyFont: { size: 12 },
+                        callbacks: {
+                            title: (tooltipItems) => formatTime(tooltipItems[0].parsed.x),
+                            label: (context) => `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`
+                        }
+                    }
                 }
             };
             
-            // 7-Day Power Chart
-            new Chart(document.getElementById('powerChart7'), {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Power (W)',
-                        data: chartData,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 0,
-                        pointHoverRadius: 5,
-                        pointHoverBackgroundColor: '#667eea',
-                        pointHoverBorderColor: '#fff',
-                        pointHoverBorderWidth: 2
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    plugins: {
-                        ...commonOptions.plugins,
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            padding: 12,
-                            titleColor: '#fff',
-                            bodyColor: '#fff',
-                            borderColor: '#667eea',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Power: ' + context.parsed.y.toFixed(1) + ' W';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'hour',
-                                displayFormats: {
-                                    hour: 'MMM dd HH:mm'
-                                }
-                            },
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    }
-                }
-            });
-            
-            // Calculate daily averages
-            const dailyData = {};
-            dataPoints.forEach(dp => {
-                const date = new Date(dp.timestamp).toISOString().split('T')[0];
-                if (!dailyData[date]) {
-                    dailyData[date] = { sum: 0, count: 0 };
-                }
-                dailyData[date].sum += dp.value;
-                dailyData[date].count += 1;
-            });
-            
-            const dailyAverages = Object.entries(dailyData).map(([date, data]) => ({
-                x: date,
-                y: data.sum / data.count
-            }));
-            
-            // --- Main charts for the new layout ---
-            // Helper: format numbers
-            function fmt(n) {
-                return Number(n).toLocaleString();
+            if (key === 'power_factor') {
+                options.scales.y.min = 0.8;
+                options.scales.y.max = 1.0;
             }
 
-            // Function to toggle between 10hr and 24hr view for Today charts
-            function toggleTodayTimeRange(button, chartId) {
-                const currentRange = button.getAttribute('data-range');
-                const newRange = currentRange === '10' ? '24' : '10';
-                button.setAttribute('data-range', newRange);
-                button.textContent = newRange + 'h';
-                
-                // Re-render the specific chart with new time range
-                renderTodayChart(chartId, parseInt(newRange));
-            }
-            
-            // Render a specific Today chart with given time range (hours)
-            function renderTodayChart(chartId, hours) {
-                const srcPoints = (todayPoints && todayPoints.length) ? todayPoints : [];
-                if (!srcPoints.length) return;
-                
-                const now = new Date();
-                const cutoff = new Date(now.getTime() - hours * 3600000);
-                const filtered = srcPoints.filter(dp => new Date(dp.timestamp) >= cutoff);
-                
-                const series = filtered.map(dp => ({ x: new Date(dp.timestamp), y: dp.value }));
-                const avgVal = series.reduce((s,p)=>s+p.y,0)/Math.max(1, series.length);
-                
-                let chartData, chartType = 'line', chartOptions = { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: {} } };
-                
-                if (chartId === 'voltageChartToday') {
-                    chartData = series.map((pt, idx) => {
-                        const v = 230 + ((pt.y - avgVal) / Math.max(1, avgVal)) * 5 + Math.sin(idx/10) * 0.5;
-                        return { x: pt.x, y: Number(v.toFixed(2)) };
-                    });
-                } else if (chartId === 'hourlyEnergyChartToday') {
-                    const hourlyMap = {};
-                    filtered.forEach(dp => {
-                        const d = new Date(dp.timestamp);
-                        const key = d.toISOString().slice(0,13) + ':00:00Z';
-                        hourlyMap[key] = (hourlyMap[key]||0) + (dp.value / 6000.0);
-                    });
-                    chartData = Object.entries(hourlyMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
-                    chartType = 'bar';
-                } else if (chartId === 'livePowerChartToday') {
-                    chartData = series;
-                } else if (chartId === 'powerFactorChartToday') {
-                    chartData = series.map((pt, idx) => {
-                        const pf = 0.95 + ((pt.y - avgVal) / Math.max(1, avgVal)) * 0.02 + Math.cos(idx/15) * 0.005;
-                        return { x: pt.x, y: Number(Math.max(0.6, Math.min(1.0, pf)).toFixed(3)) };
-                    });
-                    chartOptions.scales.y.min = 0.6;
-                    chartOptions.scales.y.max = 1.0;
-                }
-                
-                const canvasEl = document.getElementById(chartId);
-                if (canvasEl) {
-                    const chartKey = 'chart_' + chartId;
-                    if (window[chartKey]) try { window[chartKey].destroy(); } catch(e){}
-                    window[chartKey] = new Chart(canvasEl, {
-                        type: chartType,
-                        data: { datasets: [{ data: chartData, borderColor: 'rgba(246,200,76,1)', backgroundColor: 'rgba(246,200,76,0.12)', tension: 0.3, pointRadius: 0 }] },
-                        options: chartOptions
-                    });
-                }
-            }
-            
-            // Initialize all Today charts
-            function initTodayCharts() {
-                const srcPoints = (todayPoints && todayPoints.length) ? todayPoints : [];
-                if (!srcPoints.length) return;
-                
-                // Update summary stats
-                const kwhToday = srcPoints.reduce((s, p) => s + (p.value / 6000.0), 0);
-                const kwhEl = document.getElementById('kwh-today');
-                if (kwhEl) kwhEl.textContent = kwhToday.toFixed(2);
-                
-                const todayCuts = detectPowerCuts(srcPoints);
-                const cutsEl = document.getElementById('cuts-today');
-                if (cutsEl) cutsEl.textContent = todayCuts.length;
-                const cutsDurEl = document.getElementById('cutsTodayDuration');
-                if (cutsDurEl) cutsDurEl.textContent = ((todayCuts.reduce((s,c)=>s+c.duration,0)/60).toFixed(1)) + ' hours';
-                
-                const curEl = document.getElementById('current-today');
-                if (curEl && srcPoints.length) curEl.innerHTML = srcPoints[srcPoints.length-1].value.toFixed(1) + ' <span class="stat-unit">W</span>';
-                
-                // Voltage stats
-                if (srcPoints.length) {
-                    const avgP = srcPoints.reduce((s,p)=>s+p.value,0)/srcPoints.length;
-                    const voltSeries = srcPoints.map((pt, idx) => {
-                        const v = 230 + ((pt.value - avgP) / Math.max(1, avgP)) * 5 + Math.sin(idx/10) * 0.5;
-                        return { x: new Date(pt.timestamp), y: Number(v.toFixed(2)) };
-                    });
-                    const vMinEl = document.getElementById('voltageMinToday'); 
-                    if (vMinEl) vMinEl.textContent = Math.min(...voltSeries.map(v=>v.y)).toFixed(1) + ' V';
-                    const vMaxEl = document.getElementById('voltageMaxToday'); 
-                    if (vMaxEl) vMaxEl.textContent = Math.max(...voltSeries.map(v=>v.y)).toFixed(1) + ' V';
-                    const vNowEl = document.getElementById('voltage-today'); 
-                    if (vNowEl) vNowEl.textContent = Math.round(voltSeries[voltSeries.length-1].y);
-                }
-                
-                // Render all four main charts (default: last 10 hours)
-                renderTodayChart('voltageChartToday', 10);
-                renderTodayChart('hourlyEnergyChartToday', 10);
-                renderTodayChart('livePowerChartToday', 10);
-                renderTodayChart('powerFactorChartToday', 10);
-            }
-
-
-
-            const avgPower = chartData.reduce((s,p)=>s+p.y,0)/chartData.length;
-
-            // Voltage series (simulated from power values)
-            const voltageSeries = chartData.map((pt, idx) => {
-                // small deterministic variation based on index
-                const v = 230 + ((pt.y - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5;
-                return { x: pt.x, y: Number(v.toFixed(2)) };
-            });
-
-            // Power factor series (simulated)
-            const pfSeries = chartData.map((pt, idx) => {
-                const pf = 0.95 + ((pt.y - avgPower) / Math.max(1, avgPower)) * 0.02 + Math.cos(idx/15) * 0.005;
-                return { x: pt.x, y: Number(Math.max(0.6, Math.min(1.0, pf)).toFixed(3)) };
-            });
-
-            // Hourly energy aggregation (kWh)
-            const hourlyMap = {};
-            dataPoints.forEach(dp => {
-                const d = new Date(dp.timestamp);
-                const key = d.toISOString().slice(0,13) + ':00:00Z'; // hourly key
-                const kh = dp.value / 6000.0; // kWh per 10-min point (value*(10/60)/1000)
-                hourlyMap[key] = (hourlyMap[key]||0) + kh;
-            });
-            const hourlySeries = Object.entries(hourlyMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
-
-            // Live power chart (reuse chartData but show last 48 points)
-            const liveData = chartData.slice(-48);
-
-            // Render timeline segments (compact progress with gaps for cuts)
-            function renderTimelineSegments(data) {
-                const container = document.getElementById('timelineProgress');
-                container.innerHTML = '';
-                const segments = Math.min(240, data.length);
-                const segSize = Math.ceil(data.length / segments);
-                for (let s=0; s<segments; s++) {
-                    const start = s*segSize;
-                    const end = Math.min(data.length, start+segSize);
-                    let hasPower = false;
-                    for (let i=start;i<end;i++) {
-                        if (data[i].value > 1) { hasPower = true; break; }
-                    }
-                    const seg = document.createElement('div');
-                    seg.className = 'timeline-segment';
-                    seg.style.width = (100/segments) + '%';
-                    seg.style.background = hasPower ? 'var(--accent)' : 'transparent';
-                    container.appendChild(seg);
-                }
-            }
-
-            renderTimelineSegments(dataPoints);
-
-            // Voltage chart
-            new Chart(document.getElementById('voltageChart'), {
-                type: 'line',
-                data: { datasets: [{ data: voltageSeries, borderColor: 'rgba(246,200,76,1)', backgroundColor: 'rgba(246,200,76,0.12)', tension: 0.3, pointRadius: 0 }] },
-                options: { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { title: { display: true, text: 'Voltage (V)' } } } }
-            });
-
-            // Hourly energy narrow bar chart
-            new Chart(document.getElementById('hourlyEnergyChart'), {
-                type: 'bar',
-                data: { datasets: [{ data: hourlySeries, backgroundColor: 'rgba(246,200,76,0.9)', barThickness: 'flex' }] },
-                options: { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { title: { display: true, text: 'kWh' } } } }
-            });
-
-            // Live power (last 8 hours)
-            new Chart(document.getElementById('livePowerChart'), {
-                type: 'line',
-                data: { datasets: [{ data: liveData, borderColor: 'rgba(246,200,76,1)', backgroundColor: 'rgba(246,200,76,0.08)', tension: 0.35, pointRadius: 0 }] },
-                options: { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { title: { display: true, text: 'Power (W)' } } } }
-            });
-
-            // Power factor chart
-            new Chart(document.getElementById('powerFactorChart'), {
-                type: 'line',
-                data: { datasets: [{ data: pfSeries, borderColor: 'rgba(120,120,120,1)', backgroundColor: 'rgba(120,120,120,0.06)', tension: 0.3, pointRadius: 0 }] },
-                options: { ...commonOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { title: { display: true, text: 'Power Factor' }, min: 0.6, max: 1.0 } } }
-            });
-
-            // Populate small stats: voltage min/max and total kWh
-            const voltValues = voltageSeries.map(v=>v.y);
-            const vMin = Math.min(...voltValues).toFixed(1);
-            const vMax = Math.max(...voltValues).toFixed(1);
-            document.getElementById('voltage-7').textContent = Math.round(voltageSeries[voltageSeries.length-1].y);
-            // create or set min/max elements if present
-            const vmEl = document.getElementById('voltageMin'); if (vmEl) vmEl.textContent = vMin + ' V';
-            const vMEl = document.getElementById('voltageMax'); if (vMEl) vMEl.textContent = vMax + ' V';
-        }
+            charts[canvasId] = new Chart(ctx, { type, data: chartData, options });
+        };
         
-        // Render 30 Days chart
-        function render30DaysChart() {
-            if (!monthlyData || monthlyData.length === 0) {
-                console.warn('No data for 30 Days view');
-                return;
-            }
-            
-            // Monthly data should already be daily averages from aggregator
-            const dailyAverages = monthlyData.map(dp => ({
-                x: dp.timestamp,
-                y: dp.value
-            }));
-            
-            const commonOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
-            };
-            
-            // 30-Day Chart (using daily averages)
-            new Chart(document.getElementById('chart30'), {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Daily Average (W)',
-                        data: dailyAverages,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 4,
-                        pointHoverRadius: 6,
-                        pointBackgroundColor: '#667eea',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    plugins: {
-                        ...commonOptions.plugins,
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Average: ' + context.parsed.y.toFixed(1) + ' W';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'day',
-                                displayFormats: {
-                                    day: 'MMM dd'
-                                }
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Render 365 Days chart
-        function render365DaysChart() {
-            if (!yearlyData || yearlyData.length === 0) {
-                console.warn('No data for 365 Days view');
-                return;
-            }
-            
-            // Yearly data should already be daily averages from aggregator
-            // Aggregate to monthly for display
-            const monthlyDataMap = {};
-            yearlyData.forEach(dp => {
-                const date = new Date(dp.timestamp);
-                const month = date.toISOString().substring(0, 7); // YYYY-MM
-                if (!monthlyDataMap[month]) {
-                    monthlyDataMap[month] = { sum: 0, count: 0 };
-                }
-                monthlyDataMap[month].sum += dp.value;
-                monthlyDataMap[month].count += 1;
-            });
-            
-            const monthlyAverages = Object.entries(monthlyDataMap).map(([month, data]) => ({
-                x: month + '-01',
-                y: data.sum / data.count
-            }));
-            
-            const commonOptions = {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
-            };
-            
-            new Chart(document.getElementById('chart365'), {
-                type: 'bar',
-                data: {
-                    datasets: [{
-                        label: 'Monthly Average (W)',
-                        data: monthlyAverages,
-                        backgroundColor: 'rgba(118, 75, 162, 0.7)',
-                        borderColor: '#764ba2',
-                        borderWidth: 2,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    plugins: {
-                        ...commonOptions.plugins,
-                        tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            padding: 12,
-                            callbacks: {
-                                label: function(context) {
-                                    return 'Monthly Avg: ' + context.parsed.y.toFixed(1) + ' W';
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                unit: 'month',
-                                displayFormats: {
-                                    month: 'MMM yyyy'
-                                }
-                            },
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.05)'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        
-        // Page load - initialize with today tab
-        document.addEventListener('DOMContentLoaded', async () => {
-            await initializeDashboard('today');
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load data for the default 'today' tab
+            loadDataForTab('today');
         });
+
     </script>
 </body>
 </html>

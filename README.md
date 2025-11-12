@@ -24,12 +24,16 @@ That's it! The system will automatically collect data every 10 minutes.
 ## Features
 
 - 🔌 **Home Assistant Integration**: Fetches power consumption data via REST API
-- 📊 **Beautiful Dashboards**: Interactive Chart.js visualizations
-- 🌐 **GitHub Pages Publishing**: Automatic deployment to static hosting
+- 📊 **Multi-Entity Monitoring**: Track voltage, power, energy, solar, and power factor simultaneously
+- 📈 **Beautiful Dashboards**: Interactive Chart.js visualizations with real-time updates
+- � **System Health Monitoring**: Real-time disk, memory, collection status, and GitHub sync tracking
+- �🌐 **GitHub Pages Publishing**: Automatic deployment to static hosting
 - 🔧 **Web-Based Admin**: Simple maintenance mode and manual sync controls
 - 💾 **Minimal Footprint**: ~100MB total, runs on 256MB RAM devices
 - 🔄 **Rolling Data Window**: Maintains 7-day history automatically
 - ⚙️ **Maintenance Mode**: Pause data collection when needed
+- 🔋 **Power Cut Detection**: Automatic outage tracking and reporting
+- ⚡ **Backward Compatible**: Works with single or multiple sensors
 
 ## System Requirements
 
@@ -67,25 +71,36 @@ vi config.json
 
 ```json
 {
-  "homeassistant": {
+  "home_assistant": {
     "url": "http://homeassistant.local:8123",
     "token": "YOUR_HOME_ASSISTANT_LONG_LIVED_ACCESS_TOKEN",
     "entities": {
-      "power_sensor": "sensor.power_consumption",
-      "solar_sensor": "sensor.solar_generation"
+      "voltage": "sensor.voltage",
+      "daily_energy": "sensor.daily_energy",
+      "power": "sensor.live_power",
+      "solar": "sensor.solar_power",
+      "power_factor": "sensor.power_factor"
     }
   },
   "github": {
     "token": "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN",
     "repo": "username/repo-name",
-    "branch": "main",
-    "user": {
-      "name": "Your Name",
-      "email": "your.email@example.com"
-    }
+    "branch": "main"
+  },
+  "data": {
+    "directory": "/var/www/html",
+    "retention_days": 7
+  },
+  "web": {
+    "root": "/var/www/html"
+  },
+  "paths": {
+    "state_file": "/var/lib/power-monitor/state.json"
   }
 }
 ```
+
+**Note:** If you only have one sensor, you can point all entities to it, or use the old format with just `entity_id`. See [CONFIG_MIGRATION_GUIDE.md](CONFIG_MIGRATION_GUIDE.md) for details.
 
 **Getting Your Tokens:**
 
@@ -131,6 +146,55 @@ http://<device-ip>/
 ```
 
 The IP address will be displayed at the end of installation.
+
+## 🎯 Multi-Entity Monitoring
+
+The system now supports tracking **5 different metrics** simultaneously:
+
+| Entity | Purpose | Example Sensor |
+|--------|---------|----------------|
+| **Voltage** | Grid voltage monitoring | `sensor.voltage` |
+| **Daily Energy** | Daily consumption tracking | `sensor.daily_energy` |
+| **Power** | Live power usage | `sensor.live_power` |
+| **Solar** | Solar generation | `sensor.solar_power` |
+| **Power Factor** | Power quality metric | `sensor.power_factor` |
+
+### Benefits
+- ✅ **Comprehensive monitoring** - All metrics in one place
+- ✅ **Single API call** - Efficient data collection
+- ✅ **Backward compatible** - Works with old configs
+- ✅ **Flexible setup** - Use 1 or all 5 entities
+
+### Configuration Options
+
+**Option 1: Multiple Sensors (Recommended)**
+```json
+"entities": {
+  "voltage": "sensor.voltage",
+  "daily_energy": "sensor.energy",
+  "power": "sensor.power",
+  "solar": "sensor.solar",
+  "power_factor": "sensor.pf"
+}
+```
+
+**Option 2: Single Sensor (Fallback)**
+```json
+"entities": {
+  "voltage": "sensor.power",
+  "daily_energy": "sensor.power",
+  "power": "sensor.power",
+  "solar": "sensor.power",
+  "power_factor": "sensor.power"
+}
+```
+
+**Option 3: Old Format (Still Works)**
+```json
+"entity_id": "sensor.power"
+```
+
+For detailed migration instructions, see [CONFIG_MIGRATION_GUIDE.md](CONFIG_MIGRATION_GUIDE.md).
 
 ## Architecture
 

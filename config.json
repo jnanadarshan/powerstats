@@ -3,10 +3,13 @@
     "url": "http://homeassistant.local:8123",
     "token": "YOUR_HOME_ASSISTANT_LONG_LIVED_ACCESS_TOKEN",
     "entities": {
-      "power_sensor": "sensor.power_consumption",
-      "solar_sensor": "sensor.solar_generation"
+      "voltage": "sensor.voltage",
+      "daily_energy": "sensor.daily_energy_consumption",
+      "power": "sensor.live_power_usage",
+      "solar": "sensor.solar_generation",
+      "power_factor": "sensor.power_factor"
     },
-    "note": "Create long-lived access token at: http://homeassistant.local:8123/profile (scroll to bottom)"
+    "note": "Create long-lived access token at: http://homeassistant.local:8123/profile (scroll to bottom). Update entity IDs to match your Home Assistant sensors."
   },
   "github": {
     "token": "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN",
@@ -20,7 +23,8 @@
   },
   "data": {
     "retention_days": 7,
-    "collection_interval_minutes": 10
+    "collection_interval_minutes": 10,
+    "health_check_interval_seconds": 10
   },
   "admin": {
     "username": "admin",

@@ -62,16 +62,25 @@ class ConfigManager:
                 raise ValueError(f"Missing required config section: {section}")
         
         # Validate Home Assistant config
-        ha_required = ['url', 'token', 'entity_id']
+        ha_required = ['url', 'token']
         for field in ha_required:
             if field not in self.config['homeassistant']:
                 raise ValueError(f"Missing homeassistant.{field} in config")
         
-        # Validate GitHub config
-        gh_required = ['token', 'repo_owner', 'repo_name', 'branch']
-        for field in gh_required:
-            if field not in self.config['github']:
-                raise ValueError(f"Missing github.{field} in config")
+        # Validate entities (either old single entity_id or new entities dict)
+        if 'entities' not in self.config['homeassistant'] and 'entity_id' not in self.config['homeassistant']:
+            raise ValueError("Missing homeassistant.entities or homeassistant.entity_id in config")
+        
+        # Validate GitHub config (support both old and new formats)
+        if 'token' not in self.config['github']:
+            raise ValueError("Missing github.token in config")
+        
+        # Support both old format (repo_owner/repo_name) and new format (repo)
+        has_old_format = 'repo_owner' in self.config['github'] and 'repo_name' in self.config['github']
+        has_new_format = 'repo' in self.config['github']
+        
+        if not has_old_format and not has_new_format:
+            raise ValueError("Missing github.repo or github.repo_owner/repo_name in config")
         
         # Validate paths (data_file is now optional, data_dir can use web_root as fallback)
         path_required = ['state_file', 'web_root']
@@ -113,8 +122,40 @@ class ConfigManager:
     
     @property
     def ha_entity_id(self) -> str:
-        """Home Assistant entity ID"""
-        return self.config['homeassistant']['entity_id']
+        """Home Assistant entity ID (legacy - use ha_entities for new multi-entity support)"""
+        # Fallback to old single entity_id or default to power entity
+        return self.config['homeassistant'].get('entity_id', 
+               self.config['homeassistant'].get('entities', {}).get('power', ''))
+    
+    @property
+    def ha_entities(self) -> Dict[str, str]:
+        """All Home Assistant entity IDs"""
+        return self.config['homeassistant'].get('entities', {})
+    
+    @property
+    def ha_voltage_entity(self) -> str:
+        """Voltage sensor entity ID"""
+        return self.config['homeassistant'].get('entities', {}).get('voltage', '')
+    
+    @property
+    def ha_daily_energy_entity(self) -> str:
+        """Daily energy consumption entity ID"""
+        return self.config['homeassistant'].get('entities', {}).get('daily_energy', '')
+    
+    @property
+    def ha_power_entity(self) -> str:
+        """Live power usage entity ID"""
+        return self.config['homeassistant'].get('entities', {}).get('power', '')
+    
+    @property
+    def ha_solar_entity(self) -> str:
+        """Solar generation entity ID"""
+        return self.config['homeassistant'].get('entities', {}).get('solar', '')
+    
+    @property
+    def ha_power_factor_entity(self) -> str:
+        """Power factor entity ID"""
+        return self.config['homeassistant'].get('entities', {}).get('power_factor', '')
     
     @property
     def gh_token(self) -> str:
@@ -124,12 +165,22 @@ class ConfigManager:
     @property
     def gh_repo_owner(self) -> str:
         """GitHub repository owner"""
-        return self.config['github']['repo_owner']
+        # Support both old format and new format
+        if 'repo_owner' in self.config['github']:
+            return self.config['github']['repo_owner']
+        elif 'repo' in self.config['github']:
+            return self.config['github']['repo'].split('/')[0]
+        return ''
     
     @property
     def gh_repo_name(self) -> str:
         """GitHub repository name"""
-        return self.config['github']['repo_name']
+        # Support both old format and new format
+        if 'repo_name' in self.config['github']:
+            return self.config['github']['repo_name']
+        elif 'repo' in self.config['github']:
+            return self.config['github']['repo'].split('/')[1]
+        return ''
     
     @property
     def gh_branch(self) -> str:

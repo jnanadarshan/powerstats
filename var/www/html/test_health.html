@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Health Endpoint Diagnostic</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace; 
+            padding: 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header {
+            color: white;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        .btn-success:hover { background: #229954; }
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        .btn-warning:hover { background: #e67e22; }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success { 
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+        }
+        .test-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 600px) {
+            .grid { grid-template-columns: 1fr; }
+        }
+        .link-box {
+            background: #e8f4f8;
+            padding: 12px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .link-box a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .link-box a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Health Tab Diagnostic Tool</h1>
+            <p>Test your Health monitoring system</p>
+        </div>
+
+        <!-- Test Control Card -->
+        <div class="card">
+            <h2>🧪 Quick Tests</h2>
+            <div class="grid">
+                <div>
+                    <button class="btn-primary" onclick="testHealthCGI()">
+                        Test /health.cgi
+                    </button>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Fetch from production endpoint
+                    </p>
+                </div>
+                <div>
+                    <button class="btn-success" onclick="testMockCGI()">
+                        Test /health_mock.cgi
+                    </button>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Test mock data (no psutil needed)
+                    </p>
+                </div>
+                <div>
+                    <button class="btn-warning" onclick="testHealthTab()">
+                        Test Dashboard Health Tab
+                    </button>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Open dashboard and navigate to Health tab
+                    </p>
+                </div>
+                <div>
+                    <button class="btn-info" style="background: #3498db; color: white;" onclick="showHelp()">
+                        Show Help
+                    </button>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        Display debugging help
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Card -->
+        <div class="card">
+            <h2>📊 Results</h2>
+            <div id="results">
+                <div class="status info">ℹ️ Click a test button above to start</div>
+            </div>
+        </div>
+
+        <!-- Debug Info Card -->
+        <div class="card">
+            <h2>🔧 System Information</h2>
+            <div class="test-section">
+                <h3>Browser</h3>
+                <pre id="browser-info"></pre>
+            </div>
+            <div class="test-section">
+                <h3>Console Output</h3>
+                <p style="color: #666; font-size: 12px; margin-bottom: 10px;">
+                    Open browser console (F12) to see detailed debug output
+                </p>
+            </div>
+        </div>
+
+        <!-- Help Card -->
+        <div class="card" id="help-card" style="display: none;">
+            <h2>📖 Troubleshooting Guide</h2>
+            <div class="test-section">
+                <h3>If /health.cgi returns error:</h3>
+                <pre>Run in terminal:
+python3 /opt/power-monitor/health.py /opt/power-monitor/config.json
+
+If you see "No module named psutil":
+apk add py3-psutil
+
+If you see "No such file or directory config.json":
+cp /opt/power-monitor/config.example.json /opt/power-monitor/config.json
+vi /opt/power-monitor/config.json  # Edit with your settings
+</pre>
+            </div>
+            <div class="test-section">
+                <h3>If /health.cgi returns 404:</h3>
+                <pre>Check file exists:
+ls -la /var/www/html/health.cgi
+
+Make executable:
+chmod +x /var/www/html/health.cgi
+
+Restart web server:
+rc-service lighttpd restart
+</pre>
+            </div>
+            <div class="link-box">
+                📖 <a href="HEALTH_DEBUG.md" target="_blank">Full Debugging Guide</a>
+            </div>
+        </div>
+
+        <!-- Links -->
+        <div class="card">
+            <h2>🔗 Useful Links</h2>
+            <div class="grid">
+                <div class="link-box">
+                    📊 <a href="index.html">Dashboard</a> - Main power monitor dashboard
+                </div>
+                <div class="link-box">
+                    🏥 <a href="index.html#health">Health Tab</a> - Click to go to Health tab
+                </div>
+                <div class="link-box">
+                    ⚙️ <a href="admin.cgi">Admin Panel</a> - System administration
+                </div>
+                <div class="link-box">
+                    📄 <a href="health.cgi">Raw /health.cgi</a> - Raw JSON response
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Display browser info
+        document.getElementById('browser-info').textContent = 
+            `User Agent: ${navigator.userAgent}\n` +
+            `Page URL: ${window.location.href}\n` +
+            `Local Time: ${new Date().toLocaleString()}`;
+
+        function displayResult(title, status, content) {
+            const resultsDiv = document.getElementById('results');
+            const statusClass = 
+                status === 'success' ? 'success' :
+                status === 'error' ? 'error' :
+                'info';
+            
+            resultsDiv.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <h3 style="color: #333; margin-bottom: 10px;">${title}</h3>
+                    <div class="status ${statusClass}">
+                        ${status.toUpperCase()}
+                    </div>
+                    <pre>${escapeHtml(content)}</pre>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function testHealthCGI() {
+            console.log('Testing /health.cgi...');
+            displayResult('Testing /health.cgi', 'info', 'Loading...');
+            
+            try {
+                console.log('Fetching /health.cgi');
+                const response = await fetch('/health.cgi');
+                console.log('Response status:', response.status);
+                
+                const text = await response.text();
+                console.log('Response text (first 500 chars):', text.substring(0, 500));
+                
+                // Try to parse as JSON
+                try {
+                    const data = JSON.parse(text);
+                    console.log('✅ Valid JSON response:', data);
+                    
+                    if (data.error) {
+                        displayResult(
+                            '/health.cgi - Error in Response',
+                            'error',
+                            JSON.stringify(data, null, 2)
+                        );
+                    } else {
+                        displayResult(
+                            '/health.cgi - Success',
+                            'success',
+                            JSON.stringify(data, null, 2)
+                        );
+                    }
+                } catch (parseError) {
+                    console.error('❌ Invalid JSON:', parseError);
+                    displayResult(
+                        '/health.cgi - Invalid JSON',
+                        'error',
+                        'Response is not valid JSON:\n\n' + text
+                    );
+                }
+            } catch (error) {
+                console.error('❌ Fetch error:', error);
+                displayResult(
+                    '/health.cgi - Request Failed',
+                    'error',
+                    error.message + '\n\nPossible causes:\n' +
+                    '- health.cgi file missing\n' +
+                    '- Web server not running\n' +
+                    '- CORS issue\n\n' +
+                    'Check browser console (F12) for details'
+                );
+            }
+        }
+
+        async function testMockCGI() {
+            console.log('Testing /health_mock.cgi...');
+            displayResult('Testing /health_mock.cgi', 'info', 'Loading...');
+            
+            try {
+                const response = await fetch('/health_mock.cgi');
+                const data = await response.json();
+                console.log('✅ Mock data received:', data);
+                displayResult(
+                    '/health_mock.cgi - Success',
+                    'success',
+                    JSON.stringify(data, null, 2)
+                );
+            } catch (error) {
+                console.error('❌ Error:', error);
+                displayResult(
+                    '/health_mock.cgi - Failed',
+                    'error',
+                    error.message
+                );
+            }
+        }
+
+        function testHealthTab() {
+            console.log('Opening dashboard and Health tab...');
+            displayResult(
+                'Testing Health Tab',
+                'info',
+                'Opening dashboard in new window...\n\n' +
+                'Instructions:\n' +
+                '1. Dashboard will open in a new window\n' +
+                '2. Click the "Health" tab\n' +
+                '3. Look for disk/memory usage data\n' +
+                '4. Check browser console (F12) for errors'
+            );
+            
+            // Open dashboard with Health tab
+            window.open('index.html#health', '_blank');
+        }
+
+        function showHelp() {
+            const helpCard = document.getElementById('help-card');
+            helpCard.style.display = helpCard.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Log page load
+        console.log('🏥 Health Diagnostic Tool loaded');
+        console.log('Browser:', navigator.userAgent);
+        console.log('Page URL:', window.location.href);
+    </script>
+</body>
+</html>
+

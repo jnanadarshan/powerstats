@@ -750,10 +750,15 @@
                 const json = await response.json();
                 // Update footer
                 const lastUpdatedEl = document.getElementById('footer-last-updated');
-                if (lastUpdatedEl && json.last_updated) {
-                    lastUpdatedEl.textContent = `Last updated: ${new Date(json.last_updated).toLocaleString()}`;
+                if (lastUpdatedEl && (json.last_updated || json.last_update)) {
+                    const lu = json.last_updated || json.last_update;
+                    lastUpdatedEl.textContent = `Last updated: ${new Date(lu).toLocaleString()}`;
                 }
-                return json.data_points || [];
+                // Support both shapes: array or { data_points: [...] }
+                if (Array.isArray(json)) return json;
+                if (json && Array.isArray(json.data_points)) return json.data_points;
+                if (json && Array.isArray(json.data)) return json.data;
+                return [];
             } catch (error) {
                 console.error(`Failed to load ${filename}:`, error);
                 return null;

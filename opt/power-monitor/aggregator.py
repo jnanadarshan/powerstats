@@ -1,249 +1,161 @@
 #!/usr/bin/env python3
 """
-Data Aggregator for Power Monitor
-Handles aggregation of daily data into weekly, monthly, and yearly JSON files.
-Runs at scheduled times:
-- 12:02 AM: Aggregate last 24h into weekly.json (rolling 7 days)
-- 12:05 AM: Aggregate last 24h into monthly.json (rolling 30 days)
-- 12:15 AM: Aggregate last 24h into yearly.json (rolling 365 days)
+Data Aggregator for Power Monitoring System
+Processes daily data and updates weekly, monthly, and yearly aggregates.
+This script is intended to be run once a day, after midnight.
 """
+
 import json
 import os
-from pathlib import Path
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any
 import logging
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import List, Dict, Any
 
-# Setup logging
+# Since this script is in the same directory as config_manager, we can import it directly.
+from config_manager import get_config
+
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/var/log/power-monitor-aggregator.log'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger('aggregator')
 
+def calculate_daily_summary(daily_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Calculates the summary of a day's data points."""
+    if not daily_data:
+        return None
 
-class DataAggregator:
-    def __init__(self, data_dir: Path):
-        self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        
-        self.daily_file = self.data_dir / 'daily.json'
-        self.weekly_file = self.data_dir / 'weekly.json'
-        self.monthly_file = self.data_dir / 'monthly.json'
-        self.yearly_file = self.data_dir / 'yearly.json'
+    # Initialize a dictionary to hold lists of values for each metric
+    summary_metrics = {
+        'power': [], 'voltage': [], 'solar': [], 
+        'power_factor': [], 'daily_energy': []
+    }
     
-    def load_json(self, filepath: Path) -> Dict[str, Any]:
-        """Load JSON file or return empty structure."""
-        if not filepath.exists():
-            return {'data_points': [], 'last_update': None}
-        
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"Error loading {filepath}: {e}")
-            return {'data_points': [], 'last_update': None}
-    
-    def save_json(self, filepath: Path, data: Dict[str, Any]):
-        """Save JSON file atomically."""
-        temp_file = filepath.with_suffix('.tmp')
-        try:
-            with open(temp_file, 'w', encoding='utf-8') as f:
-                json.dump(data, f, indent=2)
-            temp_file.replace(filepath)
-            logger.info(f"Saved {filepath} with {len(data.get('data_points', []))} points")
-        except Exception as e:
-            logger.error(f"Error saving {filepath}: {e}")
-            if temp_file.exists():
-                temp_file.unlink()
-    
-    def aggregate_to_hourly(self, data_points: List[Dict]) -> List[Dict]:
-        """Aggregate 10-minute data points into hourly averages."""
-        if not data_points:
-            return []
-        
-        hourly_map = {}
-        for point in data_points:
-            # Round timestamp to hour
-            dt = datetime.fromisoformat(point['timestamp'].replace('Z', '+00:00'))
-            hour_key = dt.replace(minute=0, second=0, microsecond=0).isoformat().replace('+00:00', 'Z')
-            
-            if hour_key not in hourly_map:
-                hourly_map[hour_key] = {'values': [], 'timestamp': hour_key}
-            
-            hourly_map[hour_key]['values'].append(point['value'])
-        
-        # Calculate hourly averages
-        hourly_points = []
-        for hour_key in sorted(hourly_map.keys()):
-            values = hourly_map[hour_key]['values']
-            hourly_points.append({
-                'timestamp': hour_key,
-                'value': round(sum(values) / len(values), 2),
-                'unit': 'W'
-            })
-        
-        return hourly_points
-    
-    def aggregate_to_daily(self, data_points: List[Dict]) -> List[Dict]:
-        """Aggregate data points into daily averages."""
-        if not data_points:
-            return []
-        
-        daily_map = {}
-        for point in data_points:
-            # Round timestamp to day
-            dt = datetime.fromisoformat(point['timestamp'].replace('Z', '+00:00'))
-            day_key = dt.replace(hour=0, minute=0, second=0, microsecond=0).isoformat().replace('+00:00', 'Z')
-            
-            if day_key not in daily_map:
-                daily_map[day_key] = {'values': [], 'timestamp': day_key}
-            
-            daily_map[day_key]['values'].append(point['value'])
-        
-        # Calculate daily averages
-        daily_points = []
-        for day_key in sorted(daily_map.keys()):
-            values = daily_map[day_key]['values']
-            daily_points.append({
-                'timestamp': day_key,
-                'value': round(sum(values) / len(values), 2),
-                'unit': 'W'
-            })
-        
-        return daily_points
-    
-    def filter_last_n_days(self, data_points: List[Dict], days: int) -> List[Dict]:
-        """Keep only data points from the last N days."""
-        if not data_points:
-            return []
-        
-        now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(days=days)
-        
-        filtered = [
-            point for point in data_points
-            if datetime.fromisoformat(point['timestamp'].replace('Z', '+00:00')) >= cutoff
-        ]
-        
-        return filtered
-    
-    def aggregate_weekly(self):
-        """
-        Aggregate yesterday's daily data into weekly.json (rolling 7 days).
-        Called at 12:02 AM daily.
-        """
-        logger.info("Starting weekly aggregation...")
-        
-        # Load yesterday's daily data
-        daily_data = self.load_json(self.daily_file)
-        if not daily_data['data_points']:
-            logger.warning("No daily data to aggregate")
-            return
-        
-        # Load existing weekly data
-        weekly_data = self.load_json(self.weekly_file)
-        
-        # Aggregate daily data to hourly for the week view
-        new_hourly = self.aggregate_to_hourly(daily_data['data_points'])
-        
-        # Merge with existing weekly data
-        all_points = weekly_data['data_points'] + new_hourly
-        
-        # Keep only last 7 days
-        filtered_points = self.filter_last_n_days(all_points, 7)
-        
-        # Save weekly data
-        weekly_data['data_points'] = filtered_points
-        weekly_data['last_update'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        self.save_json(self.weekly_file, weekly_data)
-        
-        logger.info(f"Weekly aggregation complete: {len(filtered_points)} hourly points")
-    
-    def aggregate_monthly(self):
-        """
-        Aggregate yesterday's daily data into monthly.json (rolling 30 days).
-        Called at 12:05 AM daily.
-        """
-        logger.info("Starting monthly aggregation...")
-        
-        # Load yesterday's daily data
-        daily_data = self.load_json(self.daily_file)
-        if not daily_data['data_points']:
-            logger.warning("No daily data to aggregate")
-            return
-        
-        # Load existing monthly data
-        monthly_data = self.load_json(self.monthly_file)
-        
-        # Aggregate yesterday's data to a single daily average
-        yesterday_avg = self.aggregate_to_daily(daily_data['data_points'])
-        
-        # Merge with existing monthly data
-        all_points = monthly_data['data_points'] + yesterday_avg
-        
-        # Keep only last 30 days
-        filtered_points = self.filter_last_n_days(all_points, 30)
-        
-        # Save monthly data
-        monthly_data['data_points'] = filtered_points
-        monthly_data['last_update'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        self.save_json(self.monthly_file, monthly_data)
-        
-        logger.info(f"Monthly aggregation complete: {len(filtered_points)} daily points")
-    
-    def aggregate_yearly(self):
-        """
-        Aggregate yesterday's daily data into yearly.json (rolling 365 days).
-        Called at 12:15 AM daily.
-        """
-        logger.info("Starting yearly aggregation...")
-        
-        # Load yesterday's daily data
-        daily_data = self.load_json(self.daily_file)
-        if not daily_data['data_points']:
-            logger.warning("No daily data to aggregate")
-            return
-        
-        # Load existing yearly data
-        yearly_data = self.load_json(self.yearly_file)
-        
-        # Aggregate yesterday's data to a single daily average
-        yesterday_avg = self.aggregate_to_daily(daily_data['data_points'])
-        
-        # Merge with existing yearly data
-        all_points = yearly_data['data_points'] + yesterday_avg
-        
-        # Keep only last 365 days
-        filtered_points = self.filter_last_n_days(all_points, 365)
-        
-        # Save yearly data
-        yearly_data['data_points'] = filtered_points
-        yearly_data['last_update'] = datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
-        self.save_json(self.yearly_file, yearly_data)
-        
-        logger.info(f"Yearly aggregation complete: {len(filtered_points)} daily points")
+    # Use the timestamp from the last record of the day, but set to midnight for consistency
+    last_timestamp_str = daily_data[-1]['timestamp']
+    summary_date = datetime.fromisoformat(last_timestamp_str).replace(hour=0, minute=0, second=0, microsecond=0)
 
+    for point in daily_data:
+        for key in summary_metrics.keys():
+            if key in point and isinstance(point[key], (int, float)):
+                summary_metrics[key].append(point[key])
+
+    # Calculate final summary values
+    final_summary = {'timestamp': summary_date.isoformat()}
+    for key, values in summary_metrics.items():
+        if not values:
+            final_summary[key] = 0
+            continue
+        
+        if key == 'daily_energy':
+            # For cumulative energy, we take the maximum value of the day.
+            final_summary[key] = round(max(values), 2)
+        else:
+            # For other metrics, we calculate the average.
+            final_summary[key] = round(sum(values) / len(values), 2)
+            
+    return final_summary
+
+def update_aggregate_file(file_path: str, summary_data: Dict[str, Any], max_days: int):
+    """Loads an aggregate file, adds new data, trims it to max_days, and saves it."""
+    try:
+        # Check if file exists and is not empty
+        if os.path.exists(file_path) and os.path.getsize(file_path) > 0:
+            with open(file_path, 'r') as f:
+                aggregate_data = json.load(f)
+        else:
+            aggregate_data = []
+    except (json.JSONDecodeError, FileNotFoundError):
+        logger.warning(f"Could not read or parse {file_path}. Starting with an empty list.")
+        aggregate_data = []
+
+    # Add the new daily summary
+    aggregate_data.append(summary_data)
+
+    # Sort by timestamp to ensure chronological order
+    aggregate_data.sort(key=lambda x: x['timestamp'])
+    
+    # Remove duplicates for the same day, keeping the latest entry
+    unique_data = []
+    seen_dates = set()
+    # Iterate backwards to prioritize newer entries for a given day
+    for point in reversed(aggregate_data):
+        date = point['timestamp'][:10] # Extract YYYY-MM-DD
+        if date not in seen_dates:
+            unique_data.append(point)
+            seen_dates.add(date)
+    unique_data.reverse() # Restore chronological order
+
+    # Trim the data to the specified maximum number of days
+    if len(unique_data) > max_days:
+        unique_data = unique_data[-max_days:]
+
+    # Atomically write the updated data back to the file
+    temp_file = file_path + '.tmp'
+    with open(temp_file, 'w') as f:
+        json.dump(unique_data, f, indent=4)
+    os.replace(temp_file, file_path)
+    
+    logger.info(f"Updated {file_path} with data for {summary_data['timestamp'][:10]}. Total points: {len(unique_data)}.")
 
 def main():
-    """CLI entry point for manual aggregation."""
-    import sys
-    
-    # Get data directory from args or use default
-    if len(sys.argv) > 1:
-        data_dir = Path(sys.argv[1])
-    else:
-        data_dir = Path(__file__).resolve().parent.parent.parent / 'var' / 'www' / 'html'
-    
-    aggregator = DataAggregator(data_dir)
-    
-    # Run all aggregations
-    logger.info("Running manual aggregation for all periods...")
-    aggregator.aggregate_weekly()
-    aggregator.aggregate_monthly()
-    aggregator.aggregate_yearly()
-    logger.info("All aggregations complete!")
+    """Main aggregation routine."""
+    try:
+        config = get_config()
+        web_root = Path(config.web_root)
+        
+        daily_file = web_root / 'daily.json'
+        weekly_file = web_root / 'weekly.json'
+        monthly_file = web_root / 'monthly.json'
+        yearly_file = web_root / 'yearly.json'
 
+        logger.info("Starting daily aggregation process.")
+
+        # 1. Load the detailed daily data
+        if not daily_file.exists() or daily_file.stat().st_size == 0:
+            logger.warning("daily.json is empty or does not exist. Nothing to aggregate.")
+            return 0
+            
+        with open(daily_file, 'r') as f:
+            daily_data = json.load(f)
+
+        # 2. Identify and process data for the previous day
+        yesterday = datetime.now() - timedelta(days=1)
+        yesterday_str = yesterday.strftime('%Y-%m-%d')
+        
+        data_for_yesterday = [p for p in daily_data if p['timestamp'].startswith(yesterday_str)]
+        
+        if not data_for_yesterday:
+            logger.info(f"No data found for yesterday ({yesterday_str}) in daily.json. This can happen if the collector hasn't run for a full day yet. Skipping aggregation.")
+            return 0
+
+        # 3. Calculate the summary for the previous day
+        daily_summary = calculate_daily_summary(data_for_yesterday)
+        
+        if not daily_summary:
+            logger.warning("Failed to generate a daily summary from yesterday's data. Skipping all updates.")
+            return 1
+
+        logger.info(f"Generated summary for {yesterday_str}: {daily_summary}")
+
+        # 4. Update the aggregate files with the new daily summary
+        update_aggregate_file(str(weekly_file), daily_summary, 7)
+        update_aggregate_file(str(monthly_file), daily_summary, 30)
+        update_aggregate_file(str(yearly_file), daily_summary, 365)
+
+        logger.info("Aggregation process completed successfully.")
+        return 0
+
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during aggregation: {e}", exc_info=True)
+        return 1
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())

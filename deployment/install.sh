@@ -21,7 +21,7 @@ apk update
 
 # Install required packages
 echo "Installing required packages..."
-apk add lighttpd python3 py3-pip
+apk add lighttpd python3 py3-pip py3-psutil
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
@@ -41,6 +41,7 @@ echo "Copying application files..."
 cp ../opt/power-monitor/collector.py /opt/power-monitor/
 cp ../opt/power-monitor/publisher.py /opt/power-monitor/
 cp ../opt/power-monitor/config_manager.py /opt/power-monitor/
+cp ../opt/power-monitor/health.py /opt/power-monitor/
 cp ../opt/power-monitor/config.example.json /opt/power-monitor/
 
 # Copy templates
@@ -48,12 +49,15 @@ cp ../opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
 
 # Copy web files
 cp ../var/www/html/admin.cgi /var/www/html/
+cp ../var/www/html/health.cgi /var/www/html/
 chmod +x /var/www/html/admin.cgi
+chmod +x /var/www/html/health.cgi
 
 # Set permissions
 echo "Setting permissions..."
 chmod +x /opt/power-monitor/collector.py
 chmod +x /opt/power-monitor/publisher.py
+chmod +x /opt/power-monitor/health.py
 chmod 755 /opt/power-monitor
 chmod 755 /var/www/html
 chmod 644 /opt/power-monitor/templates/dashboard.html
