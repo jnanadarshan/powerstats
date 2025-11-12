@@ -121,12 +121,13 @@ log_info "Installing minimal system packages..."
 apk add --no-cache \
     python3 \
     py3-requests \
+    py3-jinja2 \
     lighttpd \
     curl
 
-# Note: We use Alpine's py3-requests instead of pip to avoid externally-managed-environment error
+# Note: We use Alpine's py3-* packages instead of pip to avoid externally-managed-environment error
 log_info "Package installation complete"
-apk info -s python3 py3-requests lighttpd curl | grep 'size' || echo "Package info not available"
+apk info -s python3 py3-requests py3-jinja2 lighttpd curl | grep 'size' || echo "Package info not available"
 
 log_success "Dependencies installed"
 
@@ -338,13 +339,13 @@ server.document-root = "/var/www/html"
 server.port = 80
 server.username = "lighttpd"
 server.groupname = "lighttpd"
+server.pid-file = "/var/run/lighttpd.pid"
 
 # Enable required modules
 server.modules = (
     "mod_access",
     "mod_cgi",
-    "mod_accesslog",
-    "mod_setenv"
+    "mod_accesslog"
 )
 
 # CGI configuration for admin interface
@@ -352,6 +353,9 @@ cgi.assign = ( ".cgi" => "/usr/bin/python3" )
 
 # Access log
 accesslog.filename = "/var/log/lighttpd/access.log"
+
+# Error log
+server.errorlog = "/var/log/lighttpd/error.log"
 
 # MIME types
 mimetype.assign = (
@@ -371,12 +375,26 @@ mimetype.assign = (
 # Index files
 index-file.names = ( "index.html", "index.htm" )
 
-# Enable directory listing (optional, set to "disable" for production)
+# Disable directory listing
 dir-listing.activate = "disable"
 
-# Security: hide server version
+# Security
 server.tag = "webserver"
+
+# Connection settings
+server.max-connections = 256
+server.max-request-size = 4096
 LIGHTTPD_EOF
+
+# Verify lighttpd config syntax
+log_info "Validating lighttpd configuration..."
+if /usr/sbin/lighttpd -t -f /etc/lighttpd/lighttpd.conf > /dev/null 2>&1; then
+    log_success "lighttpd configuration is valid"
+else
+    log_warn "lighttpd configuration validation failed"
+    log_warn "Attempting to continue anyway..."
+    /usr/sbin/lighttpd -t -f /etc/lighttpd/lighttpd.conf || true
+fi
 
 # Create lighttpd log directory
 mkdir -p /var/log/lighttpd
@@ -389,14 +407,26 @@ log_info "Enabling lighttpd auto-start on boot..."
 rc-update add lighttpd default
 log_success "Auto-start enabled"
 
+# Stop any existing lighttpd processes
+log_info "Stopping any existing lighttpd processes..."
+killall lighttpd 2>/dev/null || true
+sleep 1
+
 # Start lighttpd web server
 log_info "Starting lighttpd..."
-rc-service lighttpd start
-
-if rc-service lighttpd status | grep -q 'started'; then
-    log_success "Web server started successfully"
+if rc-service lighttpd start > /dev/null 2>&1; then
+    sleep 2
+    if rc-service lighttpd status > /dev/null 2>&1 && ! rc-service lighttpd status 2>&1 | grep -q 'crashed'; then
+        log_success "Web server started successfully"
+    else
+        log_error "Web server failed to start"
+        log_info "Checking error logs..."
+        tail -n 20 /var/log/lighttpd/error.log 2>/dev/null || echo "No error log available"
+        log_info "Attempting direct start..."
+        /usr/sbin/lighttpd -f /etc/lighttpd/lighttpd.conf 2>&1 || log_warn "Direct start also failed"
+    fi
 else
-    log_error "Failed to start web server"
+    log_error "Failed to start web server via rc-service"
     log_info "Check logs: tail /var/log/lighttpd/error.log"
 fi
 
@@ -408,17 +438,23 @@ echo ""
 log_info "=== STEP 7: Running Initial Data Collection ==="
 
 log_info "Collecting initial data (this may take a moment)..."
-if /usr/bin/python3 /opt/power-monitor/collector.py 2>&1 | tee /var/log/power-monitor-collector.log; then
+if /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1; then
     log_success "Initial data collection completed"
 else
-    log_warn "Initial collection had issues. Check /var/log/power-monitor-collector.log"
+    COLLECTOR_EXIT=$?
+    log_warn "Initial collection had issues (exit code: $COLLECTOR_EXIT)"
+    log_info "Last 30 lines of collector log:"
+    tail -n 30 /var/log/power-monitor-collector.log || true
 fi
 
 log_info "Publishing dashboard..."
-if /usr/bin/python3 /opt/power-monitor/publisher.py 2>&1 | tee /var/log/power-monitor-publisher.log; then
+if /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1; then
     log_success "Dashboard published"
 else
-    log_warn "Initial publish had issues. Check /var/log/power-monitor-publisher.log"
+    PUBLISHER_EXIT=$?
+    log_warn "Initial publish had issues (exit code: $PUBLISHER_EXIT)"
+    log_info "Last 30 lines of publisher log:"
+    tail -n 30 /var/log/power-monitor-publisher.log || true
 fi
 
 # =============================================================================
