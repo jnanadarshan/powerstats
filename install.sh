@@ -1,19 +1,23 @@
 #!/bin/sh
 # =============================================================================
-# Power Monitoring System - Complete Installation Script
+# Power Monitoring System - Installation Script
 # For Luckfox Pico Max with Alpine Linux
 # =============================================================================
 #
-# This script will:
-# 1. Install Python and dependencies
-# 2. Download necessary application files
-# 3. Install and configure lighttpd web server
-# 4. Setup auto-start on reboot
-# 5. Configure GitHub
-# 6. Setup Home Assistant connection
-# 7. Create interactive config.json
+# Prerequisites:
+#   1. Clone this repository: git clone <repo-url>
+#   2. Edit config.json with your credentials
+#   3. Run: sudo sh install.sh
 #
-# Usage: sh install.sh
+# This script will:
+#   1. Validate config.json exists
+#   2. Install minimal dependencies (Python, lighttpd)
+#   3. Setup cron jobs for data collection
+#   4. Install application files
+#   5. Validate GitHub API access
+#   6. Validate Home Assistant API access
+#   7. Start web server
+#   8. Display access information
 #
 # =============================================================================
 
@@ -70,6 +74,30 @@ fi
 
 log_success "Running as root"
 
+# Determine script location
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+log_info "Installation running from: $SCRIPT_DIR"
+
+# Check if config.json exists
+if [ ! -f "$SCRIPT_DIR/config.json" ]; then
+    log_error "config.json not found in $SCRIPT_DIR"
+    echo ""
+    echo "Please create and configure config.json before running installation."
+    echo "See config.json.example or documentation for required fields."
+    exit 1
+fi
+
+log_success "config.json found"
+
+# Validate config.json is valid JSON
+if ! python3 -c "import json; json.load(open('$SCRIPT_DIR/config.json'))" 2>/dev/null; then
+    log_error "config.json is not valid JSON"
+    echo "Please check your config.json syntax"
+    exit 1
+fi
+
+log_success "config.json is valid JSON"
+
 # Check internet connectivity
 log_info "Checking internet connectivity..."
 if ! ping -c 1 -W 5 8.8.8.8 > /dev/null 2>&1; then
@@ -79,16 +107,16 @@ fi
 log_success "Internet connectivity verified"
 
 # =============================================================================
-# STEP 1: Install Python and Dependencies
+# STEP 1: Install Dependencies
 # =============================================================================
 
 echo ""
-log_info "=== STEP 1: Installing Python and Dependencies ==="
+log_info "=== STEP 1: Installing Dependencies ==="
 
 log_info "Updating package repositories..."
 apk update
 
-log_info "Installing required system packages..."
+log_info "Installing minimal system packages..."
 # Install only essential packages - minimize storage footprint
 apk add --no-cache \
     python3 \
@@ -97,62 +125,53 @@ apk add --no-cache \
     curl
 
 # Note: We use Alpine's py3-requests instead of pip to avoid externally-managed-environment error
-# py3-jinja2 is not needed as we use simple string formatting in templates
-log_info "Installed packages:"
+log_info "Package installation complete"
 apk info -s python3 py3-requests lighttpd curl | grep 'size' || echo "Package info not available"
 
-log_success "Python and dependencies installed"
+log_success "Dependencies installed"
 
 # =============================================================================
-# STEP 2: Pull Down Application Files
+# STEP 2: Setup Cron
 # =============================================================================
 
 echo ""
-log_info "=== STEP 2: Setting Up Application Files ==="
+log_info "=== STEP 2: Setting Up Cron Jobs ==="
+
+# Create cron directory structure (Alpine Linux requirement)
+log_info "Creating cron directories..."
+mkdir -p /var/spool/cron/crontabs
+mkdir -p /var/log/cron
+
+log_success "Cron directories created"
+
+# Setup cron jobs (will be configured after app installation)
+log_info "Cron jobs will be configured in next step..."
+
+# =============================================================================
+# STEP 3: Install Application
+# =============================================================================
+
+echo ""
+log_info "=== STEP 3: Installing Application ==="
 
 # Create directory structure
-log_info "Creating directory structure..."
+log_info "Creating application directories..."
 mkdir -p /opt/power-monitor/templates
 mkdir -p /var/www/html
 mkdir -p /var/log/lighttpd
 mkdir -p /etc
 
-# Determine script location
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-log_info "Installation running from: $SCRIPT_DIR"
+log_success "Directories created"
 
-# Check if we're in the repo or need to clone
-if [ -f "$SCRIPT_DIR/opt/power-monitor/collector.py" ]; then
-    log_info "Found local repository files"
-    
-    # Copy application files
-    log_info "Copying application files..."
-    cp "$SCRIPT_DIR"/opt/power-monitor/*.py /opt/power-monitor/
-    cp "$SCRIPT_DIR"/opt/power-monitor/config.example.json /opt/power-monitor/
-    cp "$SCRIPT_DIR"/opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
-    cp "$SCRIPT_DIR"/var/www/html/index.html /var/www/html/ 2>/dev/null || \
-        cp "$SCRIPT_DIR"/opt/power-monitor/templates/dashboard.html /var/www/html/index.html
-    cp "$SCRIPT_DIR"/var/www/html/admin.cgi /var/www/html/
-    
-else
-    log_info "Local files not found, cloning from GitHub..."
-    echo -n "Enter GitHub repository URL (e.g., https://github.com/user/powerstats.git): "
-    read REPO_URL
-    
-    TEMP_DIR="/tmp/powerstats-install"
-    rm -rf "$TEMP_DIR"
-    git clone "$REPO_URL" "$TEMP_DIR"
-    
-    # Copy files from cloned repo
-    cp "$TEMP_DIR"/opt/power-monitor/*.py /opt/power-monitor/
-    cp "$TEMP_DIR"/opt/power-monitor/config.example.json /opt/power-monitor/
-    cp "$TEMP_DIR"/opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
-    cp "$TEMP_DIR"/var/www/html/index.html /var/www/html/ 2>/dev/null || \
-        cp "$TEMP_DIR"/opt/power-monitor/templates/dashboard.html /var/www/html/index.html
-    cp "$TEMP_DIR"/var/www/html/admin.cgi /var/www/html/
-    
-    rm -rf "$TEMP_DIR"
-fi
+# Copy application files from cloned repository
+log_info "Copying application files..."
+cp "$SCRIPT_DIR"/opt/power-monitor/*.py /opt/power-monitor/
+cp "$SCRIPT_DIR"/opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
+cp "$SCRIPT_DIR"/var/www/html/index.html /var/www/html/
+cp "$SCRIPT_DIR"/var/www/html/admin.cgi /var/www/html/
+
+# Copy config.json to application directory
+cp "$SCRIPT_DIR"/config.json /opt/power-monitor/config.json
 
 # Set permissions
 log_info "Setting permissions..."
@@ -161,15 +180,137 @@ chmod +x /var/www/html/admin.cgi
 chmod 755 /opt/power-monitor
 chmod 755 /var/www/html
 chmod 644 /opt/power-monitor/templates/dashboard.html
+chmod 600 /opt/power-monitor/config.json
+
+# Create symlink for easy config access
+ln -sf /opt/power-monitor/config.json /root/config.json
 
 log_success "Application files installed"
 
+# Configure cron jobs now that app is installed
+log_info "Configuring cron jobs for data collection..."
+
+# Remove existing power-monitor cron jobs
+crontab -l 2>/dev/null | grep -v 'power-monitor' > /tmp/crontab.tmp || true
+
+# Add new cron jobs (every 10 minutes)
+cat >> /tmp/crontab.tmp << 'CRON_EOF'
+# Power Monitor - Data Collection (every 10 minutes)
+*/10 * * * * /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1
+
+# Power Monitor - Data Publishing (every 10 minutes, offset by 5 min)
+5,15,25,35,45,55 * * * * /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1
+CRON_EOF
+
+crontab /tmp/crontab.tmp
+rm /tmp/crontab.tmp
+
+log_success "Cron jobs configured"
+
+# Initialize state file
+echo "maintenance_mode=false" > /etc/monitor.conf
+
+log_success "Application installed successfully"
+
 # =============================================================================
-# STEP 3: Install and Configure lighttpd
+# STEP 4: Validate GitHub API
 # =============================================================================
 
 echo ""
-log_info "=== STEP 3: Configuring lighttpd Web Server ==="
+log_info "=== STEP 4: Validating GitHub API Access ==="
+
+# Extract GitHub config from config.json
+GITHUB_TOKEN=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['github']['token'])")
+GITHUB_REPO=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['github']['repo'])")
+GIT_USER=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['github']['user']['name'])")
+GIT_EMAIL=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['github']['user']['email'])")
+
+# Configure git user (needed for commits)
+git config --global user.name "$GIT_USER"
+git config --global user.email "$GIT_EMAIL"
+log_success "Git configured: $GIT_USER <$GIT_EMAIL>"
+
+# Test GitHub API access
+log_info "Testing GitHub API access..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: token $GITHUB_TOKEN" \
+    "https://api.github.com/repos/$GITHUB_REPO")
+
+if [ "$HTTP_CODE" = "200" ]; then
+    log_success "GitHub API: ✓ Authentication successful"
+    log_success "Repository: ✓ '$GITHUB_REPO' is accessible"
+elif [ "$HTTP_CODE" = "404" ]; then
+    log_error "GitHub API: ✗ Repository not found"
+    log_warn "Please verify repository name in config.json"
+    log_warn "Expected format: username/repo-name"
+elif [ "$HTTP_CODE" = "401" ]; then
+    log_error "GitHub API: ✗ Authentication failed"
+    log_warn "Please verify your GitHub token in config.json"
+    log_warn "Token needs 'repo' permissions"
+else
+    log_warn "GitHub API: ? Unexpected response (HTTP $HTTP_CODE)"
+fi
+
+# =============================================================================
+# STEP 5: Validate Home Assistant API
+# =============================================================================
+
+echo ""
+log_info "=== STEP 5: Validating Home Assistant API Access ==="
+
+# Extract HA config from config.json
+HA_URL=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['url'])")
+HA_TOKEN=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['token'])")
+HA_POWER_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['power_sensor'])")
+HA_SOLAR_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['solar_sensor'])")
+
+log_info "Testing Home Assistant connection..."
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $HA_TOKEN" \
+    -H "Content-Type: application/json" \
+    "$HA_URL/api/")
+
+if [ "$HTTP_CODE" = "200" ]; then
+    log_success "Home Assistant API: ✓ Authentication successful"
+    
+    # Test power entity
+    log_info "Testing entity: $HA_POWER_ENTITY"
+    ENTITY_RESPONSE=$(curl -s \
+        -H "Authorization: Bearer $HA_TOKEN" \
+        -H "Content-Type: application/json" \
+        "$HA_URL/api/states/$HA_POWER_ENTITY")
+    
+    if echo "$ENTITY_RESPONSE" | grep -q "entity_id"; then
+        CURRENT_VALUE=$(echo "$ENTITY_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+        log_success "Power Entity: ✓ '$HA_POWER_ENTITY' (current: $CURRENT_VALUE)"
+    else
+        log_warn "Power Entity: ✗ '$HA_POWER_ENTITY' not found"
+    fi
+    
+    # Test solar entity
+    log_info "Testing entity: $HA_SOLAR_ENTITY"
+    SOLAR_RESPONSE=$(curl -s \
+        -H "Authorization: Bearer $HA_TOKEN" \
+        -H "Content-Type: application/json" \
+        "$HA_URL/api/states/$HA_SOLAR_ENTITY")
+    
+    if echo "$SOLAR_RESPONSE" | grep -q "entity_id"; then
+        SOLAR_VALUE=$(echo "$SOLAR_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
+        log_success "Solar Entity: ✓ '$HA_SOLAR_ENTITY' (current: $SOLAR_VALUE)"
+    else
+        log_warn "Solar Entity: ✗ '$HA_SOLAR_ENTITY' not found"
+    fi
+else
+    log_error "Home Assistant API: ✗ Authentication failed (HTTP $HTTP_CODE)"
+    log_warn "Please verify URL and token in config.json"
+fi
+
+# =============================================================================
+# STEP 6: Configure and Start Web Server
+# =============================================================================
+
+echo ""
+log_info "=== STEP 6: Starting Web Server ==="
 
 log_info "Creating lighttpd configuration..."
 cat > /etc/lighttpd/lighttpd.conf << 'LIGHTTPD_EOF'
@@ -223,247 +364,41 @@ chown lighttpd:lighttpd /var/log/lighttpd
 
 log_success "lighttpd configured"
 
-# =============================================================================
-# STEP 4: Setup Auto-Start on Reboot
-# =============================================================================
-
-echo ""
-log_info "=== STEP 4: Configuring Auto-Start on Reboot ==="
-
-# Create systemd-style cron jobs for collection and publishing
-log_info "Setting up cron jobs for data collection..."
-
-# Remove existing power-monitor cron jobs
-crontab -l 2>/dev/null | grep -v 'power-monitor' > /tmp/crontab.tmp || true
-
-# Add new cron jobs (every 10 minutes)
-cat >> /tmp/crontab.tmp << 'CRON_EOF'
-# Power Monitor - Data Collection (every 10 minutes)
-*/10 * * * * /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1
-
-# Power Monitor - Data Publishing (every 10 minutes, offset by 5 min)
-5,15,25,35,45,55 * * * * /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1
-CRON_EOF
-
-crontab /tmp/crontab.tmp
-rm /tmp/crontab.tmp
-
-log_success "Cron jobs installed"
-
 # Enable lighttpd to start on boot
-log_info "Enabling lighttpd to start on boot..."
+log_info "Enabling lighttpd auto-start on boot..."
 rc-update add lighttpd default
+log_success "Auto-start enabled"
 
-log_success "Auto-start configured"
-
-# =============================================================================
-# STEP 5: Setup GitHub
-# =============================================================================
-
-echo ""
-log_info "=== STEP 5: GitHub Configuration ==="
-
-# Configure git user (needed for commits)
-echo ""
-echo -n "Enter your Git username: "
-read GIT_USER
-echo -n "Enter your Git email: "
-read GIT_EMAIL
-
-git config --global user.name "$GIT_USER"
-git config --global user.email "$GIT_EMAIL"
-
-log_success "Git configured with user: $GIT_USER <$GIT_EMAIL>"
-
-# Get GitHub token
-echo ""
-log_info "GitHub Personal Access Token Setup"
-echo "You need a Personal Access Token with 'repo' permissions."
-echo "Create one at: https://github.com/settings/tokens/new"
-echo ""
-echo -n "Enter your GitHub Personal Access Token: "
-read -s GITHUB_TOKEN
-echo ""
-
-# Get GitHub repository
-echo -n "Enter your GitHub repository (format: username/repo-name): "
-read GITHUB_REPO
-
-# Get GitHub branch
-echo -n "Enter the branch name (default: main): "
-read GITHUB_BRANCH
-GITHUB_BRANCH=${GITHUB_BRANCH:-main}
-
-# =============================================================================
-# STEP 6: Test GitHub Connection
-# =============================================================================
-
-echo ""
-log_info "=== STEP 6: Testing GitHub Connection ==="
-
-log_info "Verifying GitHub credentials..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: token $GITHUB_TOKEN" \
-    "https://api.github.com/repos/$GITHUB_REPO")
-
-if [ "$HTTP_CODE" = "200" ]; then
-    log_success "GitHub authentication successful!"
-    log_success "Repository '$GITHUB_REPO' is accessible"
-elif [ "$HTTP_CODE" = "404" ]; then
-    log_error "Repository not found. Please check the repository name."
-    log_warn "Continuing installation, but GitHub sync will fail until corrected."
-elif [ "$HTTP_CODE" = "401" ]; then
-    log_error "GitHub authentication failed. Please check your token."
-    log_warn "Continuing installation, but GitHub sync will fail until corrected."
-else
-    log_warn "Unexpected response from GitHub (HTTP $HTTP_CODE)"
-    log_warn "Continuing installation, but please verify GitHub settings."
-fi
-
-# =============================================================================
-# STEP 7: Home Assistant Configuration
-# =============================================================================
-
-echo ""
-log_info "=== STEP 7: Home Assistant Configuration ==="
-
-echo ""
-echo -n "Enter your Home Assistant URL (e.g., http://homeassistant.local:8123): "
-read HA_URL
-
-echo ""
-log_info "Home Assistant Long-Lived Access Token"
-echo "Create one at: $HA_URL/profile (scroll to bottom)"
-echo ""
-echo -n "Enter your Home Assistant Access Token: "
-read -s HA_TOKEN
-echo ""
-
-echo ""
-echo -n "Enter the Power Sensor Entity ID (e.g., sensor.power_consumption): "
-read HA_ENTITY
-
-# =============================================================================
-# STEP 8: Test Home Assistant Connection
-# =============================================================================
-
-echo ""
-log_info "=== STEP 8: Testing Home Assistant Connection ==="
-
-log_info "Verifying Home Assistant credentials..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-    -H "Authorization: Bearer $HA_TOKEN" \
-    -H "Content-Type: application/json" \
-    "$HA_URL/api/")
-
-if [ "$HTTP_CODE" = "200" ]; then
-    log_success "Home Assistant authentication successful!"
-    
-    # Test entity access
-    log_info "Testing entity access: $HA_ENTITY"
-    ENTITY_RESPONSE=$(curl -s \
-        -H "Authorization: Bearer $HA_TOKEN" \
-        -H "Content-Type: application/json" \
-        "$HA_URL/api/states/$HA_ENTITY")
-    
-    if echo "$ENTITY_RESPONSE" | grep -q "entity_id"; then
-        log_success "Entity '$HA_ENTITY' is accessible"
-        CURRENT_STATE=$(echo "$ENTITY_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
-        log_info "Current value: $CURRENT_STATE"
-    else
-        log_warn "Entity '$HA_ENTITY' not found. Please verify the entity ID."
-    fi
-else
-    log_error "Home Assistant authentication failed (HTTP $HTTP_CODE)"
-    log_warn "Please verify your URL and token."
-    log_warn "Continuing installation, but data collection will fail until corrected."
-fi
-
-# =============================================================================
-# STEP 9: Create config.json
-# =============================================================================
-
-echo ""
-log_info "=== STEP 9: Creating config.json ==="
-
-# Generate a random admin password hash (simplified for Alpine)
-ADMIN_PASS=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 12 | head -n 1)
-ADMIN_HASH="changeme_$(echo -n "$ADMIN_PASS" | md5sum | cut -d' ' -f1)"
-
-log_info "Generating configuration file..."
-cat > /opt/power-monitor/config.json << CONFIG_EOF
-{
-  "homeassistant": {
-    "url": "$HA_URL",
-    "token": "$HA_TOKEN",
-    "entity_id": "$HA_ENTITY"
-  },
-  "github": {
-    "token": "$GITHUB_TOKEN",
-    "repo": "$GITHUB_REPO",
-    "branch": "$GITHUB_BRANCH"
-  },
-  "data": {
-    "retention_days": 7,
-    "collection_interval_minutes": 10
-  },
-  "admin": {
-    "username": "admin",
-    "password_hash": "$ADMIN_HASH",
-    "note": "Change this password hash! Current temp password: $ADMIN_PASS"
-  },
-  "paths": {
-    "state_file": "/etc/monitor.conf",
-    "web_root": "/var/www/html",
-    "data_dir": "/var/www/html"
-  },
-  "comments": {
-    "info": "Power monitoring system maintains 4 JSON files",
-    "daily": "daily.json - Last 24 hours (stored locally)",
-    "weekly": "weekly.json - Last 7 days (stored locally)",
-    "monthly": "monthly.json - Last 30 days (synced to GitHub)",
-    "yearly": "yearly.json - Last 365 days (synced to GitHub)"
-  }
-}
-CONFIG_EOF
-
-chmod 600 /opt/power-monitor/config.json
-log_success "Configuration file created at /opt/power-monitor/config.json"
-
-# Create root-level config.json symlink for easy access
-ln -sf /opt/power-monitor/config.json /root/config.json
-log_info "Symlink created at /root/config.json for easy editing"
-
-# Initialize state file
-echo "maintenance_mode=false" > /etc/monitor.conf
-
-# =============================================================================
-# STEP 10: Start Services and Run Initial Collection
-# =============================================================================
-
-echo ""
-log_info "=== STEP 10: Starting Services ==="
-
-# Start lighttpd
-log_info "Starting lighttpd web server..."
+# Start lighttpd web server
+log_info "Starting lighttpd..."
 rc-service lighttpd start
-log_success "lighttpd started"
 
-# Run initial data collection
+if rc-service lighttpd status | grep -q 'started'; then
+    log_success "Web server started successfully"
+else
+    log_error "Failed to start web server"
+    log_info "Check logs: tail /var/log/lighttpd/error.log"
+fi
+
+# =============================================================================
+# STEP 7: Run Initial Data Collection
+# =============================================================================
+
 echo ""
-log_info "Running initial data collection (this may take a moment)..."
-if /usr/bin/python3 /opt/power-monitor/collector.py; then
+log_info "=== STEP 7: Running Initial Data Collection ==="
+
+log_info "Collecting initial data (this may take a moment)..."
+if /usr/bin/python3 /opt/power-monitor/collector.py 2>&1 | tee /var/log/power-monitor-collector.log; then
     log_success "Initial data collection completed"
 else
-    log_warn "Initial collection had issues. Check logs for details."
+    log_warn "Initial collection had issues. Check /var/log/power-monitor-collector.log"
 fi
 
-# Run initial publish
-log_info "Publishing initial dashboard..."
-if /usr/bin/python3 /opt/power-monitor/publisher.py; then
+log_info "Publishing dashboard..."
+if /usr/bin/python3 /opt/power-monitor/publisher.py 2>&1 | tee /var/log/power-monitor-publisher.log; then
     log_success "Dashboard published"
 else
-    log_warn "Initial publish had issues. Check logs for details."
+    log_warn "Initial publish had issues. Check /var/log/power-monitor-publisher.log"
 fi
 
 # =============================================================================
@@ -491,24 +426,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Access Information"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "  Dashboard:      http://$DEVICE_IP/"
-echo "  Admin Panel:    http://$DEVICE_IP/admin.cgi"
+echo "  ${GREEN}Dashboard:      http://$DEVICE_IP/${NC}"
+echo "  ${GREEN}Admin Panel:    http://$DEVICE_IP/admin.cgi${NC}"
 echo ""
-echo "  Admin Username: admin"
-echo "  Admin Password: $ADMIN_PASS"
-echo "  ${RED}⚠️  CHANGE THIS PASSWORD IMMEDIATELY!${NC}"
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "  Configuration"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo ""
-echo "  Config File:    /opt/power-monitor/config.json"
-echo "  Quick Edit:     vi /root/config.json"
-echo ""
-echo "  To edit configuration:"
-echo "    1. Edit the file: vi /opt/power-monitor/config.json"
-echo "    2. Update any settings (HA entities, GitHub repo, etc.)"
-echo "    3. No restart needed - changes take effect on next run"
+echo "  Admin credentials configured in config.json"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Log Files"
@@ -537,11 +458,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  Next Steps"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "  1. ${YELLOW}Access the dashboard at http://$DEVICE_IP/${NC}"
-echo "  2. ${YELLOW}Change the admin password in the admin panel${NC}"
-echo "  3. ${GREEN}Review and customize config.json if needed${NC}"
-echo "  4. ${GREEN}Monitor logs to ensure data collection works${NC}"
-echo "  5. ${GREEN}Data will sync to GitHub automatically${NC}"
+echo "  1. ${GREEN}Access dashboard: http://$DEVICE_IP/${NC}"
+echo "  2. ${GREEN}Monitor logs to verify data collection${NC}"
+echo "  3. ${GREEN}Data will sync to GitHub automatically every 10 minutes${NC}"
+echo "  4. ${YELLOW}Edit config: vi /root/config.json (if changes needed)${NC}"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

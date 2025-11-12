@@ -2,6 +2,25 @@
 
 A lightweight, resource-efficient power monitoring system designed for embedded devices like the Luckfox Pico Max. Collects data from Home Assistant, generates beautiful dashboards, and publishes to GitHub Pages.
 
+## 🚀 Installation Summary
+
+```bash
+# 1. Clone repository
+git clone https://github.com/YOUR_USERNAME/powerstats.git
+cd powerstats
+
+# 2. Edit config.json with your credentials
+vi config.json
+
+# 3. Run installation
+sudo sh install.sh
+
+# 4. Access dashboard
+# Open http://<device-ip>/ in your browser
+```
+
+That's it! The system will automatically collect data every 10 minutes.
+
 ## Features
 
 - 🔌 **Home Assistant Integration**: Fetches power consumption data via REST API
@@ -26,91 +45,92 @@ A lightweight, resource-efficient power monitoring system designed for embedded 
 
 ## Quick Start
 
-### 1. Installation
+### 1. Clone Repository
 
-On your Luckfox Pico Max (as root):
+On your Luckfox Pico Max:
 
 ```sh
-cd /tmp
-# Upload the entire project directory
-cd powerstats/deployment
-chmod +x install.sh
-./install.sh
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/powerstats.git
+cd powerstats
 ```
 
-### 2. Configuration
+### 2. Configure
 
-Create `/opt/power-monitor/config.json` based on the example:
+Edit `config.json` with your credentials:
+
+```sh
+vi config.json
+```
+
+**Required Configuration:**
 
 ```json
 {
   "homeassistant": {
-    "url": "https://your-ha-instance.local:8123",
-    "token": "your_long_lived_access_token",
-    "entity_id": "sensor.power_consumption"
+    "url": "http://homeassistant.local:8123",
+    "token": "YOUR_HOME_ASSISTANT_LONG_LIVED_ACCESS_TOKEN",
+    "entities": {
+      "power_sensor": "sensor.power_consumption",
+      "solar_sensor": "sensor.solar_generation"
+    }
   },
   "github": {
-    "token": "ghp_your_github_token",
-    "repo_owner": "your-username",
-    "repo_name": "power-stats-pages",
-    "branch": "main"
-  },
-  "data": {
-    "retention_days": 7,
-    "collection_interval_minutes": 10
-  },
-  "admin": {
-    "username": "admin",
-    "password_hash": "your_password"
-  },
-  "paths": {
-    "state_file": "/etc/monitor.conf",
-    "web_root": "/var/www/html",
-    "data_file": "/var/www/html/data.json"
+    "token": "YOUR_GITHUB_PERSONAL_ACCESS_TOKEN",
+    "repo": "username/repo-name",
+    "branch": "main",
+    "user": {
+      "name": "Your Name",
+      "email": "your.email@example.com"
+    }
   }
 }
 ```
 
-**Important Configuration Steps:**
+**Getting Your Tokens:**
 
 #### Home Assistant Token
 1. Log into Home Assistant
 2. Go to Profile → Security → Long-Lived Access Tokens
-3. Create a new token and copy it to `config.json`
+3. Create token and copy to `config.json`
+4. Find your sensor entity ID in Developer Tools → States
 
 #### GitHub Token & Repository
-1. Create a new public repository (e.g., `power-stats-pages`)
-2. Go to Settings → Pages → Enable GitHub Pages (source: root)
-3. Generate a Personal Access Token:
-   - Go to GitHub Settings → Developer settings → Personal access tokens
-   - Create token with `repo` permissions
-4. Add token to `config.json`
+1. Create a new repository: `https://github.com/new`
+2. Generate Personal Access Token:
+   - Go to Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Click "Generate new token (classic)"
+   - Select scope: `repo` (full control of private repositories)
+   - Copy token to `config.json`
+3. Update `config.json` with: `username/repo-name`
 
-### 3. Test Installation
+### 3. Install
 
-```sh
-cd /tmp/powerstats/deployment
-chmod +x test.sh
-./test.sh
-```
-
-### 4. Manual Test Run
+Run the installation script:
 
 ```sh
-# Test data collection
-python3 /opt/power-monitor/collector.py
-
-# Test GitHub publishing
-python3 /opt/power-monitor/publisher.py
-
-# Check web interface
-curl http://localhost/
+sudo sh install.sh
 ```
 
-### 5. Access Interfaces
+The script will:
+1. ✓ Validate `config.json`
+2. ✓ Install dependencies (Python, lighttpd)
+3. ✓ Setup cron jobs
+4. ✓ Install application files
+5. ✓ Validate GitHub API access
+6. ✓ Validate Home Assistant API access
+7. ✓ Start web server
+8. ✓ Display access URL
 
-- **Dashboard**: `http://<device-ip>/`
-- **Admin Panel**: `http://<device-ip>/admin.cgi`
+### 4. Access Dashboard
+
+After installation completes, access your dashboard:
+
+```
+http://<device-ip>/
+```
+
+The IP address will be displayed at the end of installation.
 
 ## Architecture
 
@@ -141,23 +161,51 @@ curl http://localhost/
 
 ## File Structure
 
+### Repository Structure
+```
+powerstats/
+├── config.json              # ← EDIT THIS FIRST!
+├── install.sh              # Installation script
+├── uninstall.sh            # Uninstallation script
+├── README.md               # This file
+├── opt/
+│   └── power-monitor/
+│       ├── collector.py    # Data collection script
+│       ├── publisher.py    # GitHub publisher
+│       ├── config_manager.py
+│       ├── utils.py
+│       └── templates/
+│           └── dashboard.html
+└── var/
+    └── www/
+        └── html/
+            ├── index.html  # Dashboard
+            └── admin.cgi   # Admin interface
+```
+
+### Installed System Structure
 ```
 /opt/power-monitor/
-├── collector.py              # Main data collection script
-├── publisher.py              # GitHub Pages publisher
-├── config_manager.py         # Configuration handler
-├── config.json              # Your configuration (create this!)
-├── config.example.json      # Configuration template
+├── collector.py
+├── publisher.py
+├── config_manager.py
+├── config.json              # Copied from repo
 └── templates/
-    └── dashboard.html       # Dashboard template
+    └── dashboard.html
 
 /var/www/html/
-├── index.html              # Generated dashboard
-├── data.json               # 7-day data storage
-└── admin.cgi               # Admin interface
+├── index.html              # Dashboard
+├── admin.cgi               # Admin interface
+├── daily.json              # Last 24 hours
+├── weekly.json             # Last 7 days
+├── monthly.json            # Last 30 days (synced to GitHub)
+└── yearly.json             # Last 365 days (synced to GitHub)
 
 /etc/
 └── monitor.conf            # Maintenance mode state
+
+/root/
+└── config.json             # Symlink to /opt/power-monitor/config.json
 ```
 
 ## Usage
@@ -314,22 +362,25 @@ echo "maintenance_mode=false" > /etc/monitor.conf
 
 ```bash
 # Clone repository
-git clone <your-repo>
+git clone https://github.com/YOUR_USERNAME/powerstats.git
 cd powerstats
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy example config
-cp opt/power-monitor/config.example.json opt/power-monitor/config.json
-
 # Edit config.json with your settings
+vi config.json
 
 # Run collector
 python opt/power-monitor/collector.py
 
 # Run publisher
 python opt/power-monitor/publisher.py
+
+# Test dashboard locally
+cd var/www/html
+python -m http.server 8000
+# Open http://localhost:8000
 ```
 
 ### Modifying the Dashboard
@@ -374,10 +425,16 @@ tar -xzf power-monitor-backup.tar.gz -C /
 ## Uninstallation
 
 ```sh
-cd /tmp/powerstats/deployment
-chmod +x uninstall.sh
-./uninstall.sh
+cd powerstats
+sudo sh uninstall.sh
 ```
+
+The uninstall script will:
+- Stop lighttpd service
+- Remove cron jobs
+- Remove application files
+- Remove configuration files
+- Optionally remove installed packages
 
 ## Contributing
 
