@@ -1,0 +1,36 @@
+/* Global theme variables and UI overrides for Power Monitor */
+:root{
+  --accent-color: #f4c84b; /* main accent */
+  --accent-dark: #d79e16;
+  --text-primary: #495057; /* slightly muted vs pure black */
+  --text-secondary: #a0c068; /* grey for headers and labels */
+  --muted: #868e96;
+  --surface-color: #ffffff;
+  --card-shadow: 0 8px 24px rgba(0,0,0,0.04);
+}
+
+/* Tone down chart headers and text */
+.chart-title h3, .chart-title p, .chart-card .chart-title h3, .chart-card .chart-title p {
+  color: var(--text-secondary) !important;
+}
+
+/* Make stat and card text use primary var */
+body, .stat-card-title, .stat-card-value, header h1 {
+  color: var(--text-primary) !important;
+}
+
+/* Muted labels */
+.stat-card-footer, .chart-header p, .status-info p {
+  color: var(--muted) !important;
+}
+
+/* Chart.js canvas text uses options; ensure common elements draw darker grey where possible */
+/* Add specific styles for legend containers if ever used */
+.chartjs-legend, .chart-legend {
+  color: var(--text-secondary) !important;
+}
+
+/* Reduce emphasis on nav tab active (optional) */
+.nav-tab.active {
+  box-shadow: 0 6px 18px rgba(215,180,60,0.08);
+}
