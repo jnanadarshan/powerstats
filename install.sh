@@ -231,24 +231,31 @@ git config --global user.email "$GIT_EMAIL"
 log_success "Git configured: $GIT_USER <$GIT_EMAIL>"
 
 # Test GitHub API access
-log_info "Testing GitHub API access..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+log_info "Testing GitHub API access (timeout: 10 seconds)..."
+HTTP_CODE=$(timeout 10 curl -s -o /dev/null -w "%{http_code}" \
+    --connect-timeout 5 \
+    --max-time 10 \
     -H "Authorization: token $GITHUB_TOKEN" \
-    "https://api.github.com/repos/$GITHUB_REPO")
+    "https://api.github.com/repos/$GITHUB_REPO" 2>/dev/null || echo "000")
 
 if [ "$HTTP_CODE" = "200" ]; then
     log_success "GitHub API: ✓ Authentication successful"
     log_success "Repository: ✓ '$GITHUB_REPO' is accessible"
 elif [ "$HTTP_CODE" = "404" ]; then
-    log_error "GitHub API: ✗ Repository not found"
+    log_warn "GitHub API: ✗ Repository not found"
     log_warn "Please verify repository name in config.json"
-    log_warn "Expected format: username/repo-name"
+    log_warn "Continuing installation - fix config and restart collection manually"
 elif [ "$HTTP_CODE" = "401" ]; then
-    log_error "GitHub API: ✗ Authentication failed"
+    log_warn "GitHub API: ✗ Authentication failed"
     log_warn "Please verify your GitHub token in config.json"
-    log_warn "Token needs 'repo' permissions"
+    log_warn "Continuing installation - fix config and restart collection manually"
+elif [ "$HTTP_CODE" = "000" ]; then
+    log_warn "GitHub API: ✗ Connection timeout or unreachable"
+    log_warn "The device may not have internet connectivity"
+    log_warn "Continuing installation - verify network and restart collection manually"
 else
     log_warn "GitHub API: ? Unexpected response (HTTP $HTTP_CODE)"
+    log_warn "Continuing installation - verify settings if needed"
 fi
 
 # =============================================================================
@@ -264,45 +271,58 @@ HA_TOKEN=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/con
 HA_POWER_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['power_sensor'])")
 HA_SOLAR_ENTITY=$(python3 -c "import json; print(json.load(open('/opt/power-monitor/config.json'))['homeassistant']['entities']['solar_sensor'])")
 
-log_info "Testing Home Assistant connection..."
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+log_info "Testing Home Assistant connection (timeout: 10 seconds)..."
+
+# Test HA API with timeout - if it fails, continue anyway
+HTTP_CODE=$(timeout 10 curl -s -o /dev/null -w "%{http_code}" \
+    --connect-timeout 5 \
+    --max-time 10 \
     -H "Authorization: Bearer $HA_TOKEN" \
     -H "Content-Type: application/json" \
-    "$HA_URL/api/")
+    "$HA_URL/api/" 2>/dev/null || echo "000")
 
 if [ "$HTTP_CODE" = "200" ]; then
     log_success "Home Assistant API: ✓ Authentication successful"
     
     # Test power entity
     log_info "Testing entity: $HA_POWER_ENTITY"
-    ENTITY_RESPONSE=$(curl -s \
+    ENTITY_RESPONSE=$(timeout 5 curl -s \
+        --connect-timeout 3 \
+        --max-time 5 \
         -H "Authorization: Bearer $HA_TOKEN" \
         -H "Content-Type: application/json" \
-        "$HA_URL/api/states/$HA_POWER_ENTITY")
+        "$HA_URL/api/states/$HA_POWER_ENTITY" 2>/dev/null || echo "{}")
     
     if echo "$ENTITY_RESPONSE" | grep -q "entity_id"; then
         CURRENT_VALUE=$(echo "$ENTITY_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
         log_success "Power Entity: ✓ '$HA_POWER_ENTITY' (current: $CURRENT_VALUE)"
     else
-        log_warn "Power Entity: ✗ '$HA_POWER_ENTITY' not found"
+        log_warn "Power Entity: ✗ '$HA_POWER_ENTITY' not found or no response"
     fi
     
     # Test solar entity
     log_info "Testing entity: $HA_SOLAR_ENTITY"
-    SOLAR_RESPONSE=$(curl -s \
+    SOLAR_RESPONSE=$(timeout 5 curl -s \
+        --connect-timeout 3 \
+        --max-time 5 \
         -H "Authorization: Bearer $HA_TOKEN" \
         -H "Content-Type: application/json" \
-        "$HA_URL/api/states/$HA_SOLAR_ENTITY")
+        "$HA_URL/api/states/$HA_SOLAR_ENTITY" 2>/dev/null || echo "{}")
     
     if echo "$SOLAR_RESPONSE" | grep -q "entity_id"; then
         SOLAR_VALUE=$(echo "$SOLAR_RESPONSE" | grep -o '"state":"[^"]*"' | cut -d'"' -f4)
         log_success "Solar Entity: ✓ '$HA_SOLAR_ENTITY' (current: $SOLAR_VALUE)"
     else
-        log_warn "Solar Entity: ✗ '$HA_SOLAR_ENTITY' not found"
+        log_warn "Solar Entity: ✗ '$HA_SOLAR_ENTITY' not found or no response"
     fi
+elif [ "$HTTP_CODE" = "000" ]; then
+    log_warn "Home Assistant API: ✗ Connection timeout or unreachable"
+    log_warn "The device may not have network access to Home Assistant"
+    log_warn "Continuing installation - fix config and restart collection manually"
 else
-    log_error "Home Assistant API: ✗ Authentication failed (HTTP $HTTP_CODE)"
+    log_warn "Home Assistant API: ✗ Authentication failed (HTTP $HTTP_CODE)"
     log_warn "Please verify URL and token in config.json"
+    log_warn "Continuing installation - fix config and restart collection manually"
 fi
 
 # =============================================================================
