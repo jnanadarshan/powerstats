@@ -526,6 +526,25 @@
                         </div>
                         <div class="chart-wrapper"><canvas id="powerFactorChartToday"></canvas></div>
                     </div>
+                    <!-- Solar charts: generated dynamically if solar fields are present in the data -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar Generation</h3>
+                                <p>Instantaneous solar generation (kWh)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarGenerationChartToday"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar By Hour</h3>
+                                <p>Aggregated solar generation per hour</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarByHourChartToday"></canvas></div>
+                    </div>
                 </div>
             </div>
 
@@ -773,7 +792,9 @@
                 return;
             }
 
-            const data = await loadDataForTab(currentTab);
+            let data = await loadDataForTab(currentTab);
+            // Normalize incoming data so renderers can expect common fields
+            data = normalizeDataPoints(data, currentTab);
             
             if (!data || data.length === 0) {
                 document.querySelector('.container').innerHTML = 
@@ -996,6 +1017,26 @@
         }
 
         // --- CHART RENDERING ---
+
+        // Normalize different JSON data shapes into a canonical array of { timestamp, value, ... }
+        function normalizeDataPoints(points, tabName) {
+            if (!points || !Array.isArray(points)) return [];
+            return points.map(p => {
+                // prefer timestamp, fall back to time or ts
+                const ts = p.timestamp || p.time || p.ts || p.date || null;
+                // prefer 'value' (used by daily sample generator), else 'power'
+                const val = (typeof p.value !== 'undefined') ? Number(p.value) : (typeof p.power !== 'undefined' ? Number(p.power) : null);
+                // ensure daily_energy field is present
+                const daily_energy = (typeof p.daily_energy !== 'undefined') ? Number(p.daily_energy) : (typeof p.kwh !== 'undefined' ? Number(p.kwh) : null);
+                return {
+                    ...p,
+                    timestamp: ts,
+                    value: val,
+                    daily_energy
+                };
+            }).filter(pt => pt.timestamp && (pt.value !== null && !isNaN(pt.value)) );
+        }
+
 
         const commonChartOptions = {
             responsive: true,
