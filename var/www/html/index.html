@@ -39,9 +39,9 @@
         }
 
         .container {
-            max-width: 1800px;
+            max-width: 1400px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 18px; /* restored to a comfortable, relaxed padding */
         }
 
         /* Header */
@@ -49,15 +49,22 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             flex-wrap: wrap;
-            gap: 16px;
+            gap: 12px;
         }
 
         .header-left {
             display: flex;
             align-items: center;
             gap: 12px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
         }
 
         .header-left .logo {
@@ -79,7 +86,7 @@
         }
 
         .nav-tab {
-            padding: 10px 20px;
+            padding: 8px 14px;
             border: none;
             border-radius: 8px;
             font-size: 0.9rem;
@@ -95,23 +102,25 @@
         }
 
         .nav-tab.active {
-            background-color: var(--surface-color);
+            background: radial-gradient(circle at 50% 35%, rgba(255,193,7,0.22), rgba(255,193,7,0.10) 35%, rgba(255,193,7,0.04) 55%), var(--surface-color);
             color: var(--text-primary);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 12px 30px rgba(255,193,7,0.12), 0 6px 14px rgba(0,0,0,0.06);
+            transform: translateY(-4px) scale(1.02);
+            border: 1px solid rgba(224,168,0,0.12);
         }
 
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
 
         .action-btn {
             background-color: var(--surface-color);
             border: 1px solid #DEE2E6;
             border-radius: 50%;
-            width: 44px;
-            height: 44px;
+            width: 40px;
+            height: 40px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -132,14 +141,14 @@
         .power-status-banner {
             background: var(--surface-color);
             border-radius: var(--border-radius);
-            padding: 20px;
-            margin-bottom: 24px;
+            padding: 12px;
+            margin-bottom: 12px;
             box-shadow: var(--card-shadow);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 20px;
-            border-left: 8px solid var(--success-color);
+            gap: 12px;
+            border-left: 6px solid var(--success-color);
             transition: border-color 0.3s ease;
         }
 
@@ -150,7 +159,7 @@
         .status-main {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 12px;
         }
 
         .status-icon .material-symbols-outlined {
@@ -176,7 +185,7 @@
 
         .status-stats {
             display: flex;
-            gap: 40px;
+            gap: 20px;
         }
 
         .status-stat {
@@ -203,21 +212,22 @@
         .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 20px;
-            margin-bottom: 24px;
+            gap: 12px; /* comfortable gap */
+            margin-bottom: 16px;
         }
 
         .charts-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 20px;
+            /* Force two charts per row for the main chart areas */
+            grid-template-columns: repeat(2, minmax(320px, 1fr));
+            gap: 12px; /* comfortable gap */
         }
 
         /* Cards */
         .stat-card, .chart-card {
             background: var(--surface-color);
             border-radius: var(--border-radius);
-            padding: 24px;
+            padding: 14px; /* restored comfortable card padding */
             box-shadow: var(--card-shadow);
             transition: all 0.3s ease;
             display: flex;
@@ -232,13 +242,13 @@
         .stat-card-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 16px;
+            gap: 10px;
+            margin-bottom: 10px;
         }
 
         .stat-card-icon {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -258,7 +268,7 @@
         }
 
         .stat-card-value {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 800;
             line-height: 1.1;
         }
@@ -284,7 +294,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
         }
 
         .chart-title h3 {
@@ -299,7 +309,7 @@
 
         .chart-wrapper {
             position: relative;
-            height: 280px;
+            height: 260px;
             flex-grow: 1;
         }
 
@@ -321,8 +331,8 @@
             text-align: center;
             color: var(--text-secondary);
             font-size: 0.85rem;
-            margin-top: 48px;
-            padding: 20px;
+            margin-top: 24px;
+            padding: 12px;
         }
 
         /* Responsive */
@@ -385,21 +395,25 @@
                 <span class="logo material-symbols-outlined">bolt</span>
                 <h1>Power Monitor</h1>
             </div>
-            <div class="nav-tabs">
-                <button class="nav-tab active" onclick="switchTab(event, 'today')">Today</button>
-                <button class="nav-tab" onclick="switchTab(event, '7days')">7 Days</button>
-                <button class="nav-tab" onclick="switchTab(event, '30days')">30 Days</button>
-                <button class="nav-tab" onclick="switchTab(event, '365days')">365 Days</button>
-                <button class="nav-tab" onclick="switchTab(event, 'help')">Help</button>
+            <div class="header-right">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" onclick="switchTab(event, 'today')">Today</button>
+                    <button class="nav-tab" onclick="switchTab(event, '7days')">7 Days</button>
+                    <button class="nav-tab" onclick="switchTab(event, '30days')">30 Days</button>
+                    <button class="nav-tab" onclick="switchTab(event, '365days')">365 Days</button>
+                    <button class="nav-tab" onclick="switchTab(event, 'help')">Help</button>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" title="Settings" onclick="window.location.href='admin.cgi'">
+                        <span class="material-symbols-outlined">settings</span>
+                    </button>
+                    <button class="action-btn" title="Refresh" onclick="location.reload()">
+                        <span class="material-symbols-outlined">refresh</span>
+                    </button>
+                </div>
             </div>
-            <div class="header-actions">
-                <button class="action-btn" title="Settings" onclick="window.location.href='admin.cgi'">
-                    <span class="material-symbols-outlined">settings</span>
-                </button>
-                <button class="action-btn" title="Refresh" onclick="location.reload()">
-                    <span class="material-symbols-outlined">refresh</span>
-                </button>
-            </div>
+            
+            
         </header>
 
         <main>
@@ -463,6 +477,16 @@
                         </div>
                         <div class="stat-card-value" id="current-today">--<span class="unit">W</span></div>
                         <div class="stat-card-footer">Real-time usage</div>
+                    </div>
+                
+                    <!-- Solar Generation Card -->
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">solar_power</span></div>
+                            <div class="stat-card-title">Solar Generation</div>
+                        </div>
+                        <div class="stat-card-value" id="solar-today">--<span class="unit">kWh</span></div>
+                        <div class="stat-card-footer">Solar Power Generated Today</div>
                     </div>
                 </div>
                 <div class="charts-grid">
@@ -897,6 +921,23 @@
             renderTodayChart('hourlyEnergyChartToday', data);
             renderTodayChart('livePowerChartToday', data);
             renderTodayChart('powerFactorChartToday', data);
+
+            // Solar generation: try to read if the dataset includes solar_kwh in the points
+            const solarEl = document.getElementById('solar-today');
+            if (solarEl) {
+                // look for a solar_kwh field in recent points or sum a solar_value if present
+                const solarValues = data.map(p => p.solar_kwh || p.solar || null).filter(Boolean);
+                if (solarValues.length) {
+                    const totalSolar = solarValues.reduce((s,v) => s + Number(v), 0);
+                    solarEl.innerHTML = `${totalSolar.toFixed(2)}<span class="unit">kWh</span>`;
+                } else {
+                    // if not present, show estimated zero or keep placeholder
+                    solarEl.innerHTML = `--<span class="unit">kWh</span>`;
+                }
+            }
+            // Render solar charts
+            renderSolarLineToday(data);
+            renderSolarByHourToday(data);
         }
 
         function init7DaysView(data) {
@@ -997,17 +1038,26 @@
                 chartOptions.scales.y.max = 1.0;
             }
 
+            // Dataset defaults - use darker yellow border for bar outlines and rounded bars
+            const dataset = {
+                data: chartData,
+                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
+                backgroundColor: (chartType === 'bar') ? 'rgba(255, 193, 7, 0.9)' : 'rgba(255, 193, 7, 0.2)',
+                borderWidth: (chartType === 'bar') ? 1 : 2,
+                fill: chartType !== 'bar',
+                tension: 0.4,
+                pointRadius: 0
+            };
+
+            // For bar charts, apply rounded corners (Chart.js borderRadius) and ensure both ends rounded
+            if (chartType === 'bar') {
+                dataset.borderRadius = 10;
+                dataset.borderSkipped = false;
+            }
+
             chartInstances[chartId] = new Chart(canvasEl, {
                 type: chartType,
-                data: { datasets: [{ 
-                    data: chartData, 
-                    borderColor: 'var(--accent-color)', 
-                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4, 
-                    pointRadius: 0 
-                }] },
+                data: { datasets: [dataset] },
                 options: chartOptions
             });
         }
@@ -1033,6 +1083,59 @@
             });
         }
 
+        // --- SOLAR CHARTS FOR TODAY ---
+        function renderSolarLineToday(data) {
+            const chartId = 'solarGenerationChartToday';
+            destroyChart(chartId);
+            const canvas = document.getElementById(chartId);
+            if (!canvas || !data || data.length === 0) return;
+
+            // Prefer fields: solar_kwh, solar, pv_kwh
+            const series = data.map(p => ({ t: new Date(p.timestamp), v: (p.solar_kwh || p.solar || p.pv_kwh || 0) }));
+            const hasData = series.some(s => s.v && s.v > 0);
+            if (!hasData) return;
+
+            const chartData = series.map(s => ({ x: s.t, y: s.v }));
+
+            chartInstances[chartId] = new Chart(canvas, {
+                type: 'line',
+                data: { datasets: [{ data: chartData, borderColor: 'var(--accent-dark)', backgroundColor: 'rgba(224,168,0,0.08)', borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
+                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+            });
+        }
+
+        function renderSolarByHourToday(data) {
+            const chartId = 'solarByHourChartToday';
+            destroyChart(chartId);
+            const canvas = document.getElementById(chartId);
+            if (!canvas || !data || data.length === 0) return;
+
+            // Aggregate by hour
+            const hourly = {};
+            data.forEach(p => {
+                const key = new Date(p.timestamp).toISOString().slice(0,13) + ':00:00Z';
+                const val = (p.solar_kwh || p.solar || p.pv_kwh || 0);
+                hourly[key] = (hourly[key] || 0) + Number(val);
+            });
+            const entries = Object.entries(hourly).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
+            if (entries.length === 0) return;
+
+            const dataset = {
+                data: entries,
+                backgroundColor: 'rgba(255, 193, 7, 0.9)',
+                borderColor: 'var(--accent-dark)',
+                borderWidth: 1,
+                borderRadius: 6,
+                borderSkipped: false
+            };
+
+            chartInstances[chartId] = new Chart(canvas, {
+                type: 'bar',
+                data: { datasets: [dataset] },
+                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+            });
+        }
+
         function render7DayEnergyChart(data) {
             const chartId = 'dailyEnergyChart7';
             destroyChart(chartId);
@@ -1045,13 +1148,19 @@
             
             const chartData = Object.entries(dailyData).map(([date, kwh]) => ({ x: date, y: kwh }));
 
+            const dataset = {
+                label: 'Energy (kWh)',
+                data: chartData,
+                backgroundColor: 'rgba(255, 193, 7, 0.9)',
+                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
+                borderWidth: 1,
+                borderRadius: 8,
+                borderSkipped: false
+            };
+
             chartInstances[chartId] = new Chart(document.getElementById(chartId), {
                 type: 'bar',
-                data: { datasets: [{
-                    label: 'Energy (kWh)',
-                    data: chartData,
-                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
-                }] },
+                data: { datasets: [dataset] },
                 options: commonChartOptions
             });
         }
