@@ -376,6 +376,9 @@ mimetype.assign = (
 # Index files
 index-file.names = ( "index.html", "index.htm" )
 
+# Upload directory required by Alpine lighttpd
+server.upload-dirs = ( "/var/tmp" )
+
 # Security
 server.tag = "webserver"
 
