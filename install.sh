@@ -376,9 +376,6 @@ mimetype.assign = (
 # Index files
 index-file.names = ( "index.html", "index.htm" )
 
-# Disable directory listing
-dir-listing.activate = "disable"
-
 # Security
 server.tag = "webserver"
 
@@ -386,6 +383,9 @@ server.tag = "webserver"
 server.max-connections = 256
 server.max-request-size = 4096
 LIGHTTPD_EOF
+
+# Ensure /var/tmp exists for lighttpd upload-dirs
+mkdir -p /var/tmp
 
 # Verify lighttpd config syntax
 log_info "Validating lighttpd configuration..."
