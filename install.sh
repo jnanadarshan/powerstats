@@ -88,14 +88,18 @@ log_info "=== STEP 1: Installing Python and Dependencies ==="
 log_info "Updating package repositories..."
 apk update
 
-log_info "Installing Python3 and pip..."
-apk add --no-cache python3 py3-pip
+log_info "Installing required system packages..."
+# Install only essential packages - minimize storage footprint
+apk add --no-cache \
+    python3 \
+    py3-requests \
+    lighttpd \
+    curl
 
-log_info "Installing system packages..."
-apk add --no-cache git curl lighttpd openrc
-
-log_info "Installing Python packages..."
-pip3 install --no-cache-dir requests jinja2
+# Note: We use Alpine's py3-requests instead of pip to avoid externally-managed-environment error
+# py3-jinja2 is not needed as we use simple string formatting in templates
+log_info "Installed packages:"
+apk info -s python3 py3-requests lighttpd curl | grep 'size' || echo "Package info not available"
 
 log_success "Python and dependencies installed"
 
