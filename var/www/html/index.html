@@ -248,6 +248,9 @@
             color: var(--text-secondary);
         }
 
+        .status-info .status-meta { color: var(--text-secondary); font-size: 0.95rem; }
+        .status-info .meta-line { margin-bottom: 4px; }
+
         .status-stats {
             display: flex;
             gap: 20px;
@@ -300,6 +303,30 @@
             flex-direction: column;
             position: relative; /* allow absolute-positioned indicators inside cards */
         }
+
+        /* compact mini stat cards used alongside the banner */
+        .mini-stat {
+            padding: 10px 12px;
+            width: 160px;
+            min-width: 140px;
+        }
+        .mini-stat .mini-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 8px;
+            background: var(--recent-bg);
+        }
+        .mini-stat .mini-icon .material-symbols-outlined { font-size: 18px; color: var(--text-primary); }
+        .mini-stat .stat-card-title { font-size: 0.78rem; color: var(--text-secondary); }
+        .mini-stat .stat-card-value { font-size: 1.1rem; font-weight: 700; }
+
+        .power-banner-row { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+        .power-banner-meta { display: flex; gap: 8px; align-items: stretch; }
+        .power-status-banner { flex: 1; }
 
         .stat-card:hover, .chart-card:hover {
             transform: translateY(-5px);
@@ -477,6 +504,7 @@
                 flex-direction: column;
                 align-items: stretch;
             }
+            .power-banner-row { flex-direction: column; }
             .nav-tabs {
                 justify-content: center;
             }
@@ -580,28 +608,53 @@
         </header>
 
         <main>
-            <div class="power-status-banner" id="powerStatusBanner">
-                <div class="status-main">
-                    <div class="status-icon">
-                        <span class="material-symbols-outlined">check_circle</span>
-                    </div>
-                    <div class="status-info">
-                        <h2 id="powerStatusTitle">Power Stable</h2>
-                        <p id="powerStatusSubtitle">Monitoring power stability across all periods.</p>
-                    </div>
+            <div class="power-banner-row">
+                <div class="power-banner-meta">
+                    <div class="stat-card mini-stat">
+                            <div class="stat-card-header">
+                                <div class="mini-icon"><span class="material-symbols-outlined">schedule</span></div>
+                                <div class="stat-card-title">Last Updated</div>
+                            </div>
+                            <div class="stat-card-value" id="ps-last-updated">--</div>
+                        </div>
+                        <div class="stat-card mini-stat">
+                            <div class="stat-card-header">
+                                <div class="mini-icon"><span class="material-symbols-outlined">autorenew</span></div>
+                                <div class="stat-card-title">Next Update</div>
+                            </div>
+                            <div class="stat-card-value" id="ps-next-update">--</div>
+                        </div>
+                        <div class="stat-card mini-stat">
+                            <div class="stat-card-header">
+                                <div class="mini-icon"><span class="material-symbols-outlined">storage</span></div>
+                                <div class="stat-card-title">Data Points</div>
+                            </div>
+                            <div class="stat-card-value" id="ps-data-count">--</div>
+                        </div>
                 </div>
-                <div class="status-stats">
-                    <div class="status-stat">
-                        <span class="value" id="totalCuts">0</span>
-                        <span class="label">Total Cuts</span>
+
+                <div class="power-status-banner" id="powerStatusBanner">
+                    <div class="status-main">
+                        <div class="status-icon">
+                            <span class="material-symbols-outlined">check_circle</span>
+                        </div>
+                        <div class="status-info">
+                            <!-- compact banner no longer shows long title/subtitle -->
+                        </div>
                     </div>
-                    <div class="status-stat">
-                        <span class="value" id="totalDuration">0h</span>
-                        <span class="label">Total Duration</span>
-                    </div>
-                    <div class="status-stat">
-                        <span class="value" id="avgDuration">0m</span>
-                        <span class="label">Avg Duration</span>
+                    <div class="status-stats">
+                        <div class="status-stat">
+                            <span class="value" id="totalCuts">0</span>
+                            <span class="label">Total Cuts</span>
+                        </div>
+                        <div class="status-stat">
+                            <span class="value" id="totalDuration">0h</span>
+                            <span class="label">Total Duration</span>
+                        </div>
+                        <div class="status-stat">
+                            <span class="value" id="avgDuration">0m</span>
+                            <span class="label">Avg Duration</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1036,11 +1089,11 @@
                     } catch (e) {
                         console.warn('Failed to load help content', e);
                     }
-                    updatePowerCutBanner([]); // Clear banner for help tab
+                    updatePowerCutBanner([], null); // Clear banner for help tab
                     return;
                 }
             if (currentTab === 'health') {
-                updatePowerCutBanner([]); // Clear banner for health tab
+                updatePowerCutBanner([], null); // Clear banner for health tab
                 // populate basic health info asynchronously
                 renderHealthTab();
                 return;
@@ -1071,7 +1124,7 @@
             
             // Update global data based on tab and apply Today time-window filtering
             let allCuts = [];
-            if (currentTab === 'today') {
+                if (currentTab === 'today') {
                 todayPoints = data;
                 const hours = Number(window.todayWindowHours) || 12;
                 const filtered = filterLastNHours(todayPoints, hours);
@@ -1092,7 +1145,7 @@
             }
 
             // Update power cut banner based on the view (for Today use filtered window)
-            updatePowerCutBanner(allCuts);
+            try { updatePowerCutBanner(allCuts, (currentTab === 'today' ? todayPoints : data)); } catch (e) { console.warn('updatePowerCutBanner failed', e); }
         }
 
         // Load HELP_CONSOLIDATED.md and render it into #help-content using marked + DOMPurify.
@@ -1301,32 +1354,70 @@
         }
         
         // Update power cut banner
-        function updatePowerCutBanner(cuts) {
+        async function updatePowerCutBanner(cuts, data) {
             const banner = document.getElementById('powerStatusBanner');
             const icon = banner.querySelector('.status-icon .material-symbols-outlined');
-            const title = document.getElementById('powerStatusTitle');
-            const subtitle = document.getElementById('powerStatusSubtitle');
+            const lastEl = document.getElementById('ps-last-updated');
+            const nextEl = document.getElementById('ps-next-update');
+            const countEl = document.getElementById('ps-data-count');
             
-            const totalCuts = cuts.length;
-            const totalMinutes = cuts.reduce((sum, cut) => sum + cut.duration, 0);
+            const totalCuts = (cuts && Array.isArray(cuts)) ? cuts.length : 0;
+            const totalMinutes = (cuts && Array.isArray(cuts)) ? cuts.reduce((sum, cut) => sum + (cut.duration || 0), 0) : 0;
             const totalHours = (totalMinutes / 60).toFixed(1);
             const avgMinutes = totalCuts > 0 ? Math.round(totalMinutes / totalCuts) : 0;
-            
-            document.getElementById('totalCuts').textContent = totalCuts;
-            document.getElementById('totalDuration').textContent = totalHours + 'h';
-            document.getElementById('avgDuration').textContent = avgMinutes + 'm';
-            
+
+            // Update numeric stats on the right
+            try { document.getElementById('totalCuts').textContent = totalCuts; } catch(e){}
+            try { document.getElementById('totalDuration').textContent = totalHours + 'h'; } catch(e){}
+            try { document.getElementById('avgDuration').textContent = avgMinutes + 'm'; } catch(e){}
+
+            // Icon state
             if (totalCuts === 0) {
                 banner.classList.remove('has-cuts');
                 icon.textContent = 'check_circle';
-                title.textContent = 'Power Stable';
-                subtitle.textContent = 'No power interruptions detected.';
             } else {
                 banner.classList.add('has-cuts');
                 icon.textContent = 'error';
-                title.textContent = `${totalCuts} Power Cut${totalCuts > 1 ? 's' : ''} Detected`;
-                subtitle.textContent = `Total downtime of ${totalHours} hours.`;
             }
+
+            // Last updated: prefer last data point timestamp, else fallback to footer
+            let lastUpdated = null;
+            if (data && Array.isArray(data) && data.length) {
+                try { lastUpdated = new Date(data[data.length - 1].timestamp); } catch(e){ lastUpdated = null; }
+            }
+            if (!lastUpdated) {
+                // attempt to read footer last-updated which may have been set earlier
+                const footerEl = document.getElementById('footer-last-updated');
+                if (footerEl && footerEl.textContent) {
+                    // assume format "Last updated: ..."
+                    const txt = footerEl.textContent.replace('Last updated:', '').trim();
+                    try { lastUpdated = new Date(txt); } catch (e) { lastUpdated = null; }
+                }
+            }
+            if (lastEl) lastEl.textContent = lastUpdated ? new Date(lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '--';
+
+            // Data points count
+            if (countEl) countEl.textContent = (data && Array.isArray(data)) ? data.length : '--';
+
+            // Next update: try to read collection interval from /config.json
+            let nextDisplay = '--';
+            try {
+                let interval = 10; // default minutes
+                const resp = await fetch('/config.json');
+                if (resp.ok) {
+                    const cfg = await resp.json();
+                    if (cfg && typeof cfg.collection_interval_minutes !== 'undefined') interval = Number(cfg.collection_interval_minutes) || interval;
+                }
+                if (lastUpdated) {
+                    const next = new Date(lastUpdated.getTime() + interval * 60000);
+                    nextDisplay = next.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                } else {
+                    nextDisplay = `${interval} minutes`
+                }
+            } catch (e) {
+                // ignore and keep default
+            }
+            if (nextEl) nextEl.textContent = nextDisplay;
         }
 
         // --- VIEW INITIALIZERS ---
@@ -1836,24 +1927,36 @@
             const chartId = 'solarGenerationChartToday';
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
-            if (!canvas || !data || data.length === 0) return;
+            if (!canvas) return;
+            if (!data || data.length === 0) {
+                console.debug('renderSolarLineToday: no data provided');
+                return;
+            }
 
             // Prefer fields: solar_kwh, solar, pv_kwh
             const series = data.map(p => ({ t: new Date(p.timestamp), v: (p.solar_kwh || p.solar || p.pv_kwh || 0) }));
-            const hasData = series.some(s => s.v && s.v > 0);
-            if (!hasData) return;
-
-            const chartData = series.map(s => ({ x: s.t, y: s.v }));
+            // Log a short sample to help debugging when charts don't appear
+            try { console.debug('renderSolarLineToday: series sample', series.slice(0,3)); } catch(e){}
+            // Render even when values may be zero so users can see a flat line instead of nothing
+            const chartData = series.map(s => ({ x: s.t, y: Number(s.v || 0) }));
 
             // Use theme colors from CSS variables so solar charts match the site theme
             const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
             const accentDark = getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800';
             const bg = hexToRgba((accentDark.trim() || accent).trim(), 0.08);
 
+            const cssGridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'line',
                 data: { datasets: [{ data: chartData, borderColor: (accentDark.trim() || accent).trim(), backgroundColor: bg, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
-                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+                options: {
+                    ...commonChartOptions,
+                    plugins: { tooltip: { mode: 'index', intersect: false }, legend: { display: false } },
+                    scales: {
+                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                        y: { beginAtZero: true, grid: { color: cssGridColor.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } }
+                    }
+                }
             });
             // Populate recent indicator for instantaneous solar (most recent sample)
             try {
@@ -1873,7 +1976,11 @@
             const chartId = 'solarByHourChartToday';
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
-            if (!canvas || !data || data.length === 0) return;
+            if (!canvas) return;
+            if (!data || data.length === 0) {
+                console.debug('renderSolarByHourToday: no data provided');
+                return;
+            }
 
             // Aggregate by hour
             const hourly = {};
@@ -1883,7 +1990,7 @@
                 hourly[key] = (hourly[key] || 0) + Number(val);
             });
             const entries = Object.entries(hourly).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
-            if (entries.length === 0) return;
+            if (entries.length === 0) { console.debug('renderSolarByHourToday: no hourly entries'); return; }
 
             // (no recent badge here — recent badge moved to the Solar Generation chart)
 
@@ -1899,10 +2006,18 @@
                 borderSkipped: false
             };
 
+            const cssGridColorBar = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'bar',
                 data: { datasets: [dataset] },
-                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+                options: {
+                    ...commonChartOptions,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} kWh` } } },
+                    scales: {
+                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                        y: { beginAtZero: true, grid: { color: cssGridColorBar.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 5 }, title: { display: false } }
+                    }
+                }
             });
         }
 
@@ -2041,7 +2156,7 @@
             if (currentTab === 'today' && todayPoints && todayPoints.length) {
                 const filtered = filterLastNHours(todayPoints, window.todayWindowHours);
                 initTodayView(filtered);
-                updatePowerCutBanner(detectPowerCuts(filtered));
+                updatePowerCutBanner(detectPowerCuts(filtered), filtered);
             }
         }
 
