@@ -1,13 +1,5 @@
 [
     {
-        "timestamp": "2025-11-13T08:28:03.873530",
-        "voltage": 243.6,
-        "daily_energy": 484.5,
-        "power": 484.5,
-        "solar": 1.5,
-        "power_factor": 6.5
-    },
-    {
         "timestamp": "2025-11-13T08:30:03.848917",
         "voltage": 241.0,
         "daily_energy": 495.0,
@@ -1149,6 +1141,14 @@
         "daily_energy": 422.7,
         "power": 422.7,
         "solar": 15.1,
+        "power_factor": 6.1
+    },
+    {
+        "timestamp": "2025-11-13T13:16:03.952056",
+        "voltage": 256.9,
+        "daily_energy": 430.8,
+        "power": 430.8,
+        "solar": 15.4,
         "power_factor": 6.1
     }
 ]
