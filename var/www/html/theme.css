@@ -22,6 +22,43 @@ html[data-theme="dark"] {
   --card-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
+/* Mobile layout (centralized breakpoint): compact three-column stats and mini-stat grid */
+@media (max-width: 600px) {
+  /* Banner mini-stats in a single row (three columns) */
+  .power-banner-meta {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    align-items: start;
+  }
+
+  /* Make the main stats grid compact and show three cards per row */
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px;
+  }
+
+  /* Compact stat cards */
+  .stat-card, .chart-card {
+    padding: 10px;
+  }
+
+  .stat-card-header { gap: 8px; margin-bottom: 8px; }
+
+  .stat-card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .stat-card-icon .material-symbols-outlined { font-size: 20px; }
+
+  .stat-card-title { font-size: 0.82rem; }
+  .stat-card-value { font-size: 1.2rem; }
+
+  .mini-stat { padding: 8px; }
+}
+
 /* Tone down chart headers and text */
 .chart-title h3, .chart-title p, .chart-card .chart-title h3, .chart-card .chart-title p {
   color: var(--text-secondary) !important;
