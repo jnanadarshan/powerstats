@@ -303,17 +303,67 @@ else
     log_info "Created ${CRONTAB_FILE}"
 fi
 
-# Combined job runs collector then publisher every 2 minutes
-JOB_LINE="*/2 * * * * /bin/sh -c '/usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1 && /usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1'"
 
-# Append job if not present (use fixed-string match)
-if ! grep -Fq "${JOB_LINE}" "${CRONTAB_FILE}"; then
-    printf "\n# Power Monitor - combined job (every 2 minutes)\n" >> "${CRONTAB_FILE}"
-    printf "%s\n" "${JOB_LINE}" >> "${CRONTAB_FILE}"
-    log_success "Appended power-monitor job to ${CRONTAB_FILE}"
-else
-    log_info "Power-monitor job already present in ${CRONTAB_FILE}"
+# Generate cron expressions from config.json and install per-job entries.
+# This will remove any existing power-monitor collector/publisher entries
+# (identified by marker comments or references to the script paths) and
+# replace them with fresh lines based on the user's `config.json` settings.
+
+log_info "Reading interval settings from /opt/power-monitor/config.json"
+
+# Read cron expressions (two lines: collector_cron, publisher_cron)
+read COL_CRON PUB_CRON <<'CRON'
+$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+d=cfg.get('data',{})
+def cron_for_minutes(m):
+    try:
+        m=int(m)
+    except Exception:
+        return None
+    if m<=0:
+        return None
+    if m < 60:
+        return f"*/{m} * * * *"
+    if m == 60:
+        return "0 * * * *"
+    if m % 60 == 0:
+        return f"0 */{m//60} * * *"
+    # fallback to hourly if non-divisible interval > 60
+    return "0 * * * *"
+
+local = d.get('local_collection_interval_minutes', d.get('collection_interval_minutes', 10))
+pub = d.get('publish_interval_minutes', 60)
+print(cron_for_minutes(local) or "*/10 * * * *")
+print(cron_for_minutes(pub) or "0 * * * *")
+PY
+CRON
+CRON
+
+if [ -z "${COL_CRON}" ] || [ -z "${PUB_CRON}" ]; then
+    log_warn "Could not determine cron schedules from config. Using defaults."
+    COL_CRON="*/10 * * * *"
+    PUB_CRON="0 * * * *"
 fi
+
+log_info "Collector cron: ${COL_CRON}"
+log_info "Publisher cron: ${PUB_CRON}"
+
+# Create temporary crontab file by filtering out any existing power-monitor lines
+TMP_CRON="${CRONTAB_FILE}.tmp.${TS}"
+grep -v -E 'power-monitor:collector|power-monitor:publisher|/opt/power-monitor/collector.py|/opt/power-monitor/publisher.py' "${CRONTAB_FILE}" > "${TMP_CRON}" || cp "${CRONTAB_FILE}" "${TMP_CRON}"
+
+# Append new collector job
+printf "\n# Power Monitor - collector job\n" >> "${TMP_CRON}"
+printf "%s /bin/sh -c '/usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1' # power-monitor:collector\n" "${COL_CRON}" >> "${TMP_CRON}"
+
+# Append new publisher job
+printf "\n# Power Monitor - publisher job\n" >> "${TMP_CRON}"
+printf "%s /bin/sh -c '/usr/bin/python3 /opt/power-monitor/publisher.py >> /var/log/power-monitor-publisher.log 2>&1' # power-monitor:publisher\n" "${PUB_CRON}" >> "${TMP_CRON}"
+
+# Move temp into place atomically
+mv "${TMP_CRON}" "${CRONTAB_FILE}"
 
 # Ensure correct ownership/permissions for system crontab
 chown root:root "${CRONTAB_FILE}" || true
@@ -665,7 +715,7 @@ echo "  System Status"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "  Web Server:     $(rc-service lighttpd status | grep -q 'started' && echo '✓ Running' || echo '✗ Stopped')"
-echo "  Data Collection: Runs every 10 minutes via cron"
+echo "  Data Collection: Runs according to 'data' intervals in /opt/power-monitor/config.json"
 echo "  Auto-start:     ✓ Enabled (survives reboots)"
 echo ""
 echo "  Manual commands:"
@@ -679,7 +729,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "  1. ${GREEN}Access dashboard: http://$DEVICE_IP/${NC}"
 echo "  2. ${GREEN}Monitor logs to verify data collection${NC}"
-echo "  3. ${GREEN}Data will sync to GitHub automatically every 10 minutes${NC}"
+echo "  3. ${GREEN}Data will sync to GitHub automatically according to 'publish_interval_minutes' in config.json${NC}"
 echo "  4. ${YELLOW}Edit config: vi /root/config.json (if changes needed)${NC}"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
