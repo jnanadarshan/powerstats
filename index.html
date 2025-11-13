@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Monitor Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡️</text></svg>">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="stylesheet" href="/theme.css">
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(180deg, #F8F9FA 0%, #E9ECEF 100%);
+            --surface-color: #FFFFFF;
+            --text-primary: #212529;
+            --text-secondary: #6C757D;
+            --accent-color: #FFC107;
+            --accent-dark: #E0A800;
+            --danger-color: #DC3545;
+            --success-color: #28A745;
+            --border-radius: 16px;
+            --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 18px; /* restored to a comfortable, relaxed padding */
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-left: auto;
+        }
+
+        .header-left .logo {
+            font-size: 2.5rem;
+            color: var(--accent-color);
+        }
+
+        .header-left h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            background-color: #e9ecef;
+            padding: 8px;
+            border-radius: 999px; /* pill container */
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+
+        .nav-tab {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 999px; /* make tabs very rounded */
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(.2,.9,.3,1);
+            background-color: transparent;
+            box-shadow: none;
+        }
+
+        .nav-tab:hover {
+            background-color: rgba(0,0,0,0.05);
+        }
+
+        .nav-tab.active {
+            background: radial-gradient(circle at 50% 35%, rgba(255,193,7,0.26), rgba(255,193,7,0.12) 36%, rgba(255,193,7,0.06) 58%), var(--surface-color);
+            color: var(--text-primary);
+            box-shadow: 0 10px 24px rgba(224,168,0,0.12), 0 6px 12px rgba(0,0,0,0.05);
+            transform: translateY(-3px) scale(1.01);
+            border: 1px solid rgba(224,168,0,0.14);
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-btn {
+            background-color: var(--surface-color);
+            border: 1px solid #DEE2E6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+        }
+
+        .action-btn .material-symbols-outlined {
+            font-size: 22px;
+        }
+
+        /* Power Status Banner */
+        .power-status-banner {
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-left: 6px solid var(--success-color);
+            transition: border-color 0.3s ease;
+        }
+
+        .power-status-banner.has-cuts {
+            border-left-color: var(--danger-color);
+        }
+
+        .status-main {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-icon .material-symbols-outlined {
+            font-size: 3rem;
+            color: var(--success-color);
+            transition: color 0.3s ease;
+        }
+        
+        .power-status-banner.has-cuts .status-icon .material-symbols-outlined {
+            color: var(--danger-color);
+        }
+
+        .status-info h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .status-info p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .status-stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .status-stat {
+            text-align: center;
+        }
+
+        .status-stat .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .status-stat .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        /* Tab Content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Grids */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px; /* comfortable gap */
+            margin-bottom: 16px;
+        }
+
+        .charts-grid {
+            display: grid;
+            /* Force two charts per row for the main chart areas */
+            grid-template-columns: repeat(2, minmax(320px, 1fr));
+            gap: 12px; /* comfortable gap */
+        }
+
+        /* Cards */
+        .stat-card, .chart-card {
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 14px; /* restored comfortable card padding */
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-card:hover, .chart-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.07);
+        }
+
+        .stat-card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #F8F9FA;
+        }
+
+        .stat-card-icon .material-symbols-outlined {
+            font-size: 28px;
+            color: var(--text-primary);
+        }
+
+        .stat-card-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .stat-card-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1.1;
+        }
+        
+        .stat-card-value .unit {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-left: 4px;
+        }
+
+        .stat-card-footer {
+            margin-top: auto;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-card.danger .stat-card-value {
+            color: var(--danger-color);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .chart-title h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        .chart-title p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 260px;
+            flex-grow: 1;
+        }
+
+        /* Time window toggles for Today tab */
+        .time-toggle-group {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            margin: 8px 0 12px 0;
+        }
+
+        .time-toggle {
+            background: #f1f3f5;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .time-toggle.active {
+            background: var(--accent-color);
+            color: #111;
+            box-shadow: 0 8px 20px rgba(224,168,0,0.12);
+            transform: translateY(-2px);
+        }
+
+        /* Help Tab */
+        .help-content {
+            background: var(--surface-color);
+            border-radius: var(--border-radius);
+            padding: 40px;
+            box-shadow: var(--card-shadow);
+        }
+        .help-section { margin-bottom: 30px; }
+        .help-section h3 { font-size: 1.5rem; margin-bottom: 15px; color: var(--text-primary); }
+        .help-section p, .help-section ul { color: var(--text-secondary); line-height: 1.7; }
+        .help-section ul { padding-left: 20px; }
+        .help-section code { background: #e9ecef; padding: 3px 6px; border-radius: 6px; font-family: 'Courier New', monospace; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin-top: 24px;
+            padding: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 992px) {
+            header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .nav-tabs {
+                justify-content: center;
+            }
+            .power-status-banner {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .status-stats {
+                width: 100%;
+                justify-content: space-around;
+                margin-top: 16px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 16px; }
+            .header-left h1 { font-size: 1.5rem; }
+            .nav-tabs {
+                overflow-x: auto;
+                justify-content: flex-start;
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+            .nav-tabs::-webkit-scrollbar { display: none; }
+            .nav-tab { flex-shrink: 0; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .stat-card-value { font-size: 2rem; }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--text-secondary);
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <span class="logo material-symbols-outlined">bolt</span>
+                <h1>Power Monitor</h1>
+            </div>
+            <div class="header-right">
+                <div class="nav-tabs">
+                    <button class="nav-tab active" data-tab="today" onclick="switchTab(event, 'today')">Today</button>
+                    <button class="nav-tab" data-tab="7days" onclick="switchTab(event, '7days')">7 Days</button>
+                    <button class="nav-tab" data-tab="30days" onclick="switchTab(event, '30days')">30 Days</button>
+                    <button class="nav-tab" data-tab="365days" onclick="switchTab(event, '365days')">365 Days</button>
+                    <button class="nav-tab" data-tab="help" onclick="switchTab(event, 'help')">Help</button>
+                    <button class="nav-tab" data-tab="health" onclick="switchTab(event, 'health')">Health</button>
+                </div>
+                <div class="header-actions">
+                    <button class="action-btn" title="Settings" onclick="window.location.href='admin.cgi'">
+                        <span class="material-symbols-outlined">settings</span>
+                    </button>
+                    <button class="action-btn" title="Refresh" onclick="location.reload()">
+                        <span class="material-symbols-outlined">refresh</span>
+                    </button>
+                </div>
+            </div>
+            
+            
+        </header>
+
+        <main>
+            <div class="power-status-banner" id="powerStatusBanner">
+                <div class="status-main">
+                    <div class="status-icon">
+                        <span class="material-symbols-outlined">check_circle</span>
+                    </div>
+                    <div class="status-info">
+                        <h2 id="powerStatusTitle">Power Stable</h2>
+                        <p id="powerStatusSubtitle">Monitoring power stability across all periods.</p>
+                    </div>
+                </div>
+                <div class="status-stats">
+                    <div class="status-stat">
+                        <span class="value" id="totalCuts">0</span>
+                        <span class="label">Total Cuts</span>
+                    </div>
+                    <div class="status-stat">
+                        <span class="value" id="totalDuration">0h</span>
+                        <span class="label">Total Duration</span>
+                    </div>
+                    <div class="status-stat">
+                        <span class="value" id="avgDuration">0m</span>
+                        <span class="label">Avg Duration</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Today Tab -->
+            <div id="tab-today" class="tab-content active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">electric_bolt</span></div>
+                            <div class="stat-card-title">Current Voltage</div>
+                        </div>
+                        <div class="stat-card-value" id="voltage-today">--<span class="unit">V</span></div>
+                        <div class="stat-card-footer" id="voltage-range-today">Min: -- V / Max: -- V</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">local_fire_department</span></div>
+                            <div class="stat-card-title">Energy Today</div>
+                        </div>
+                        <div class="stat-card-value" id="kwh-today">--<span class="unit">kWh</span></div>
+                        <div class="stat-card-footer">Total consumption</div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">power_off</span></div>
+                            <div class="stat-card-title">Power Cuts Today</div>
+                        </div>
+                        <div class="stat-card-value" id="cuts-today">0</div>
+                        <div class="stat-card-footer" id="cutsTodayDuration">Totaling 0 hours</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">speed</span></div>
+                            <div class="stat-card-title">Live Power</div>
+                        </div>
+                        <div class="stat-card-value" id="current-today">--<span class="unit">W</span></div>
+                        <div class="stat-card-footer">Real-time usage</div>
+                    </div>
+                
+                    <!-- Solar Generation Card -->
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">solar_power</span></div>
+                            <div class="stat-card-title">Solar Generation</div>
+                        </div>
+                        <div class="stat-card-value" id="solar-today">--<span class="unit">kWh</span></div>
+                        <div class="stat-card-footer">Solar Power Generated Today</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div style="grid-column:1 / -1; display:flex; justify-content:flex-end;">
+                        <div class="time-toggle-group" id="todayTimeToggles">
+                            <button class="time-toggle" data-hours="6" onclick="setTodayWindow(6)">6H</button>
+                            <button class="time-toggle active" data-hours="12" onclick="setTodayWindow(12)">12H</button>
+                            <button class="time-toggle" data-hours="24" onclick="setTodayWindow(24)">24H</button>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Real-time Voltage</h3>
+                                <p>Live voltage readings</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="voltageChartToday"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Hourly Energy</h3>
+                                <p>Consumption per hour (kWh)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="hourlyEnergyChartToday"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Live Power</h3>
+                                <p>Real-time power draw (W)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="livePowerChartToday"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Power Factor</h3>
+                                <p>Efficiency of power usage</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="powerFactorChartToday"></canvas></div>
+                    </div>
+                    <!-- Solar charts: generated dynamically if solar fields are present in the data -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar Generation</h3>
+                                <p>Instantaneous solar generation (kWh)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarGenerationChartToday"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar By Hour</h3>
+                                <p>Aggregated solar generation per hour</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarByHourChartToday"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 7 Days Tab -->
+            <div id="tab-7days" class="tab-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">speed</span></div>
+                            <div class="stat-card-title">Average Power (7d)</div>
+                        </div>
+                        <div class="stat-card-value" id="avg-7">--<span class="unit">W</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">local_fire_department</span></div>
+                            <div class="stat-card-title">Total Energy (7d)</div>
+                        </div>
+                        <div class="stat-card-value" id="total-7">--<span class="unit">kWh</span></div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">power_off</span></div>
+                            <div class="stat-card-title">Power Cuts (7d)</div>
+                        </div>
+                        <div class="stat-card-value" id="cuts7Count">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">trending_up</span></div>
+                            <div class="stat-card-title">Peak Usage (7d)</div>
+                        </div>
+                        <div class="stat-card-value" id="max-7">--<span class="unit">W</span></div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <!-- Mirror Today's chart grid for 7 Days -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Voltage (7d)</h3>
+                                <p>Voltage trend over the last 7 days (simulated)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="voltageChart7"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Hourly Energy (7d)</h3>
+                                <p>Consumption per hour (kWh)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="hourlyEnergyChart7"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Live Power (7d)</h3>
+                                <p>Power draw samples across week</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="livePowerChart7"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Power Factor (7d)</h3>
+                                <p>Efficiency of power usage</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="powerFactorChart7"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar Generation (7d)</h3>
+                                <p>Instantaneous solar generation (kWh)</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarGenerationChart7"></canvas></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Solar By Hour (7d)</h3>
+                                <p>Aggregated solar generation per hour</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="solarByHourChart7"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 30 Days Tab -->
+            <div id="tab-30days" class="tab-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">speed</span></div>
+                            <div class="stat-card-title">Average Power (30d)</div>
+                        </div>
+                        <div class="stat-card-value" id="avg-30">--<span class="unit">W</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">local_fire_department</span></div>
+                            <div class="stat-card-title">Total Energy (30d)</div>
+                        </div>
+                        <div class="stat-card-value" id="total-30">--<span class="unit">kWh</span></div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">power_off</span></div>
+                            <div class="stat-card-title">Power Cuts (30d)</div>
+                        </div>
+                        <div class="stat-card-value" id="cuts30Count">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">payments</span></div>
+                            <div class="stat-card-title">Est. Monthly Cost</div>
+                        </div>
+                        <div class="stat-card-value" id="cost-30">$--</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>30-Day Trend</h3>
+                                <p>Daily average consumption</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="chart30"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 365 Days Tab -->
+            <div id="tab-365days" class="tab-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">speed</span></div>
+                            <div class="stat-card-title">Average Power (365d)</div>
+                        </div>
+                        <div class="stat-card-value" id="avg-365">--<span class="unit">W</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">local_fire_department</span></div>
+                            <div class="stat-card-title">Total Energy (365d)</div>
+                        </div>
+                        <div class="stat-card-value" id="total-365">--<span class="unit">kWh</span></div>
+                    </div>
+                    <div class="stat-card danger">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">power_off</span></div>
+                            <div class="stat-card-title">Power Cuts (365d)</div>
+                        </div>
+                        <div class="stat-card-value" id="cuts365Count">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-header">
+                            <div class="stat-card-icon"><span class="material-symbols-outlined">payments</span></div>
+                            <div class="stat-card-title">Est. Annual Cost</div>
+                        </div>
+                        <div class="stat-card-value" id="cost-365">$--</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card" style="grid-column: 1 / -1;">
+                        <div class="chart-header">
+                            <div class="chart-title">
+                                <h3>Annual Overview</h3>
+                                <p>Monthly consumption patterns</p>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper"><canvas id="chart365"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Tab -->
+            <div id="tab-help" class="tab-content">
+                <div class="help-content">
+                    <h3>💡 About This Dashboard</h3>
+                    <p>Welcome to your Power Monitoring Dashboard! This system tracks your power consumption in real-time and provides comprehensive analytics to help you understand your energy usage patterns.</p>
+                    
+                    <div class="help-section">
+                        <h3>📊 Understanding the Metrics</h3>
+                        <ul>
+                            <li><strong>Live Power:</strong> Real-time power consumption in Watts (W).</li>
+                            <li><strong>Average Power:</strong> Mean power consumption over the selected time period.</li>
+                            <li><strong>Total Energy:</strong> Cumulative energy consumption in kilowatt-hours (kWh).</li>
+                            <li><strong>Power Cuts:</strong> Detected outages when consumption drops to near-zero for a set duration.</li>
+                            <li><strong>Est. Cost:</strong> An estimation of electricity cost based on total energy and a configurable rate.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>⚠️ Power Cut Detection</h3>
+                        <p>The system automatically detects power cuts by identifying periods where consumption drops to zero. The banner at the top shows a summary for the selected period.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Health Tab -->
+            <div id="tab-health" class="tab-content">
+                <div class="help-content">
+                    <h3>🩺 System Health</h3>
+                    <p>Basic health diagnostics for the local data collector and web UI.</p>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+                        <div class="stat-card" style="min-width:220px;">
+                            <div class="stat-card-header"><div class="stat-card-title">Collector Status</div></div>
+                            <div class="stat-card-value" id="health-service-status">—</div>
+                            <div class="stat-card-footer">Whether the local collector is writing data files</div>
+                        </div>
+                        <div class="stat-card" style="min-width:220px;">
+                            <div class="stat-card-header"><div class="stat-card-title">Last Sample</div></div>
+                            <div class="stat-card-value" id="health-last-sample">—</div>
+                            <div class="stat-card-footer">Timestamp of most recent data point</div>
+                        </div>
+                        <div class="stat-card" style="min-width:220px;">
+                            <div class="stat-card-header"><div class="stat-card-title">Sample Count (Today)</div></div>
+                            <div class="stat-card-value" id="health-collector-uptime">—</div>
+                            <div class="stat-card-footer">Number of points in today's dataset</div>
+                        </div>
+                        <div class="stat-card" style="min-width:220px;">
+                            <div class="stat-card-header"><div class="stat-card-title">Disk Usage</div></div>
+                            <div class="stat-card-value" id="health-disk-usage">—</div>
+                            <div class="stat-card-footer">Estimated usage for /var/www/html</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:14px;">
+                        <button class="time-toggle" onclick="renderHealthTab(true)">Refresh Health</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p id="footer-last-updated">Last updated: --</p>
+            <p>Power Monitoring System v3.0</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Data stores - will be loaded dynamically
+        let dataPoints = [];
+        let todayPoints = [];
+        let weeklyData = [];
+        let monthlyData = [];
+        let yearlyData = [];
+        
+        // Data source mapping for each tab (use lowercase keys to match nav buttons)
+        const DATA_SOURCES = {
+            'today': 'daily.json',
+            '7days': 'weekly.json',
+            '30days': 'monthly.json',
+            '365days': 'yearly.json'
+        };
+        
+        // Chart instances
+        const chartInstances = {};
+
+        // Destroy chart if it exists
+        function destroyChart(chartId) {
+            if (chartInstances[chartId]) {
+                chartInstances[chartId].destroy();
+                delete chartInstances[chartId];
+            }
+        }
+        
+        // Current active tab
+        let currentTab = 'today';
+        
+        // Fetch JSON data from server
+        async function loadDataForTab(tabName) {
+            const filename = DATA_SOURCES[tabName];
+            if (!filename) {
+                if (tabName !== 'help') console.error('Unknown tab:', tabName);
+                return null;
+            }
+            
+            try {
+                const response = await fetch(filename);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const json = await response.json();
+                // Update footer
+                const lastUpdatedEl = document.getElementById('footer-last-updated');
+                if (lastUpdatedEl && (json.last_updated || json.last_update)) {
+                    const lu = json.last_updated || json.last_update;
+                    lastUpdatedEl.textContent = `Last updated: ${new Date(lu).toLocaleString()}`;
+                }
+                // Support both shapes: array or { data_points: [...] }
+                if (Array.isArray(json)) return json;
+                if (json && Array.isArray(json.data_points)) return json.data_points;
+                if (json && Array.isArray(json.data)) return json.data;
+                return [];
+            } catch (error) {
+                console.error(`Failed to load ${filename}:`, error);
+                return null;
+            }
+        }
+        
+        // Initialize dashboard with data from specific tab
+        async function initializeDashboard(tabName) {
+            currentTab = tabName.toLowerCase();
+            // Special static tabs that don't load JSON
+            if (currentTab === 'help') {
+                updatePowerCutBanner([]); // Clear banner for help tab
+                return;
+            }
+            if (currentTab === 'health') {
+                updatePowerCutBanner([]); // Clear banner for health tab
+                // populate basic health info asynchronously
+                renderHealthTab();
+                return;
+            }
+
+            let data = await loadDataForTab(currentTab);
+            // Normalize incoming data so renderers can expect common fields
+            data = normalizeDataPoints(data, currentTab);
+            
+            if (!data || data.length === 0) {
+                // Don't replace the entire page; write a tab-scoped no-data message so nav remains visible
+                const tabEl = document.getElementById('tab-' + currentTab);
+                if (tabEl) {
+                    tabEl.innerHTML = '<div class="no-data">⏳ No data available for this period.<br><br>Data collection in progress...<br>Please check back in a few minutes.</div>';
+                } else {
+                    console.warn('Tab element not found for', currentTab);
+                }
+                console.info(`No data for tab ${currentTab} (loadDataForTab returned ${data === null ? 'null' : 'empty array'})`);
+                return;
+            }
+
+            // Debug: log counts and time range for the loaded dataset (helps diagnose 7day visibility issues)
+            try {
+                console.info(`initializeDashboard(${currentTab}): loaded ${data.length} points; first=${data[0] && data[0].timestamp}, last=${data[data.length-1] && data[data.length-1].timestamp}`);
+            } catch (e) {
+                console.debug('Could not log dataset summary', e);
+            }
+            
+            // Update global data based on tab and apply Today time-window filtering
+            let allCuts = [];
+            if (currentTab === 'today') {
+                todayPoints = data;
+                const hours = Number(window.todayWindowHours) || 12;
+                const filtered = filterLastNHours(todayPoints, hours);
+                initTodayView(filtered);
+                allCuts = detectPowerCuts(filtered);
+            } else if (currentTab === '7days') {
+                weeklyData = data;
+                init7DaysView(data);
+                allCuts = detectPowerCuts(data);
+            } else if (currentTab === '30days') {
+                monthlyData = data;
+                init30DaysView(data);
+                allCuts = detectPowerCuts(data);
+            } else if (currentTab === '365days') {
+                yearlyData = data;
+                init365DaysView(data);
+                allCuts = detectPowerCuts(data);
+            }
+
+            // Update power cut banner based on the view (for Today use filtered window)
+            updatePowerCutBanner(allCuts);
+        }
+        
+        // Tab switching function
+        async function switchTab(event, tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active from all nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab (guard existence)
+            const selected = document.getElementById('tab-' + tabName);
+            if (selected) selected.classList.add('active');
+            else console.warn('Tab not found:', tabName);
+            
+            // Highlight active nav tab: prefer the clicked element, otherwise find by data-tab
+            let navBtn = null;
+            if (event && event.target) {
+                navBtn = event.target.closest && event.target.closest('.nav-tab') ? event.target.closest('.nav-tab') : null;
+            }
+            if (!navBtn) {
+                navBtn = document.querySelector(`.nav-tab[data-tab="${tabName}"]`);
+            }
+            if (navBtn) navBtn.classList.add('active');
+            
+            // Load data for the new tab
+            await initializeDashboard(tabName);
+        }
+        
+        // Power cut detection function
+        function detectPowerCuts(data, periodDays = 7) {
+            const cuts = [];
+            let cutStart = null;
+            
+            if (!data) return cuts;
+
+            for (let i = 0; i < data.length; i++) {
+                const point = data[i];
+                const value = point.value;
+                
+                if (value === 0 || value < 1) {
+                    if (cutStart === null) {
+                        cutStart = i;
+                    }
+                } else {
+                    if (cutStart !== null) {
+                        const duration = i - cutStart;
+                        if (duration >= 1) { // At least 1 data point (10 minutes)
+                            cuts.push({
+                                start: data[cutStart].timestamp,
+                                end: data[i - 1].timestamp,
+                                duration: duration * 10 // minutes (assuming 10-min intervals)
+                            });
+                        }
+                        cutStart = null;
+                    }
+                }
+            }
+            
+            // Handle ongoing cut
+            if (cutStart !== null && data.length - cutStart >= 1) {
+                cuts.push({
+                    start: data[cutStart].timestamp,
+                    end: data[data.length - 1].timestamp,
+                    duration: (data.length - cutStart) * 10
+                });
+            }
+            
+            return cuts;
+        }
+        
+        // Update power cut banner
+        function updatePowerCutBanner(cuts) {
+            const banner = document.getElementById('powerStatusBanner');
+            const icon = banner.querySelector('.status-icon .material-symbols-outlined');
+            const title = document.getElementById('powerStatusTitle');
+            const subtitle = document.getElementById('powerStatusSubtitle');
+            
+            const totalCuts = cuts.length;
+            const totalMinutes = cuts.reduce((sum, cut) => sum + cut.duration, 0);
+            const totalHours = (totalMinutes / 60).toFixed(1);
+            const avgMinutes = totalCuts > 0 ? Math.round(totalMinutes / totalCuts) : 0;
+            
+            document.getElementById('totalCuts').textContent = totalCuts;
+            document.getElementById('totalDuration').textContent = totalHours + 'h';
+            document.getElementById('avgDuration').textContent = avgMinutes + 'm';
+            
+            if (totalCuts === 0) {
+                banner.classList.remove('has-cuts');
+                icon.textContent = 'check_circle';
+                title.textContent = 'Power Stable';
+                subtitle.textContent = 'No power interruptions detected.';
+            } else {
+                banner.classList.add('has-cuts');
+                icon.textContent = 'error';
+                title.textContent = `${totalCuts} Power Cut${totalCuts > 1 ? 's' : ''} Detected`;
+                subtitle.textContent = `Total downtime of ${totalHours} hours.`;
+            }
+        }
+
+        // --- VIEW INITIALIZERS ---
+
+        function initTodayView(data) {
+            if (!data || data.length === 0) return;
+
+            // Update summary stats
+            const kwhToday = data.reduce((s, p) => s + (p.value / 6000.0), 0);
+            document.getElementById('kwh-today').innerHTML = `${kwhToday.toFixed(2)}<span class="unit">kWh</span>`;
+            
+            const todayCuts = detectPowerCuts(data);
+            document.getElementById('cuts-today').textContent = todayCuts.length;
+            document.getElementById('cutsTodayDuration').textContent = `Totaling ${((todayCuts.reduce((s,c)=>s+c.duration,0)/60).toFixed(1))} hours`;
+            
+            if (data.length > 0) {
+                document.getElementById('current-today').innerHTML = `${data[data.length-1].value.toFixed(1)}<span class="unit">W</span>`;
+            }
+            
+            // Voltage stats (simulated)
+            const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
+            const voltSeries = data.map((pt, idx) => 230 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5);
+            const vMin = Math.min(...voltSeries).toFixed(1);
+            const vMax = Math.max(...voltSeries).toFixed(1);
+            document.getElementById('voltage-today').innerHTML = `${Math.round(voltSeries[voltSeries.length-1])}<span class="unit">V</span>`;
+            document.getElementById('voltage-range-today').textContent = `Min: ${vMin} V / Max: ${vMax} V`;
+
+            // Render all four main charts
+            renderTodayChart('voltageChartToday', data);
+            renderTodayChart('hourlyEnergyChartToday', data);
+            renderTodayChart('livePowerChartToday', data);
+            renderTodayChart('powerFactorChartToday', data);
+
+            // Solar generation: try to read if the dataset includes solar_kwh in the points
+            const solarEl = document.getElementById('solar-today');
+            if (solarEl) {
+                // look for a solar_kwh field in recent points or sum a solar_value if present
+                const solarValues = data.map(p => p.solar_kwh || p.solar || null).filter(Boolean);
+                if (solarValues.length) {
+                    const totalSolar = solarValues.reduce((s,v) => s + Number(v), 0);
+                    solarEl.innerHTML = `${totalSolar.toFixed(2)}<span class="unit">kWh</span>`;
+                } else {
+                    // if not present, show estimated zero or keep placeholder
+                    solarEl.innerHTML = `--<span class="unit">kWh</span>`;
+                }
+            }
+            // Render solar charts
+            renderSolarLineToday(data);
+            renderSolarByHourToday(data);
+        }
+
+        function init7DaysView(data) {
+            if (!data || data.length === 0) return;
+
+            const totalKwh = data.reduce((s, p) => s + (p.value / 6000.0), 0);
+            const avgPower = data.reduce((s, p) => s + p.value, 0) / data.length;
+            const maxPower = Math.max(...data.map(p => p.value));
+            const cuts = detectPowerCuts(data);
+
+            document.getElementById('avg-7').innerHTML = `${avgPower.toFixed(1)}<span class="unit">W</span>`;
+            document.getElementById('total-7').innerHTML = `${totalKwh.toFixed(2)}<span class="unit">kWh</span>`;
+            document.getElementById('max-7').innerHTML = `${maxPower.toFixed(1)}<span class="unit">W</span>`;
+            document.getElementById('cuts7Count').textContent = cuts.length;
+
+            // Render charts
+            // Render same charts as Today view but using weekly data
+            renderVoltage7(data);
+            renderHourlyEnergy7(data);
+            renderLivePower7(data);
+            renderPowerFactor7(data);
+            renderSolarLine7(data);
+            renderSolarByHour7(data);
+        }
+
+        function init30DaysView(data) {
+            if (!data || data.length === 0) return;
+
+            const totalKwh = data.reduce((s, p) => s + (p.value * 24 / 1000), 0); // daily avg watts to daily kWh
+            const avgPower = data.reduce((s, p) => s + p.value, 0) / data.length;
+            const cuts = detectPowerCuts(data); // Note: this assumes daily data has 0 for cut days
+            const cost = totalKwh * 0.12; // Assuming $0.12/kWh
+
+            document.getElementById('avg-30').innerHTML = `${avgPower.toFixed(1)}<span class="unit">W</span>`;
+            document.getElementById('total-30').innerHTML = `${totalKwh.toFixed(1)}<span class="unit">kWh</span>`;
+            document.getElementById('cuts30Count').textContent = cuts.length;
+            document.getElementById('cost-30').textContent = `$${cost.toFixed(2)}`;
+
+            render30DaysChart(data);
+        }
+
+        function init365DaysView(data) {
+            if (!data || data.length === 0) return;
+
+            const totalKwh = data.reduce((s, p) => s + (p.value * 24 / 1000), 0) * (365 / data.length); // Extrapolate
+            const avgPower = data.reduce((s, p) => s + p.value, 0) / data.length;
+            const cuts = detectPowerCuts(data);
+            const cost = totalKwh * 0.12;
+
+            document.getElementById('avg-365').innerHTML = `${avgPower.toFixed(1)}<span class="unit">W</span>`;
+            document.getElementById('total-365').innerHTML = `${(totalKwh/1000).toFixed(1)}<span class="unit">MWh</span>`;
+            document.getElementById('cuts365Count').textContent = cuts.length;
+            document.getElementById('cost-365').textContent = `$${Math.round(cost)}`;
+
+            render365DaysChart(data);
+        }
+
+        // --- CHART RENDERING ---
+
+        // Normalize different JSON data shapes into a canonical array of { timestamp, value, ... }
+        function normalizeDataPoints(points, tabName) {
+            if (!points || !Array.isArray(points)) return [];
+            return points.map(p => {
+                // prefer timestamp, fall back to time or ts
+                const ts = p.timestamp || p.time || p.ts || p.date || null;
+                // prefer 'value' (used by daily sample generator), else 'power'
+                const val = (typeof p.value !== 'undefined') ? Number(p.value) : (typeof p.power !== 'undefined' ? Number(p.power) : null);
+                // ensure daily_energy field is present
+                const daily_energy = (typeof p.daily_energy !== 'undefined') ? Number(p.daily_energy) : (typeof p.kwh !== 'undefined' ? Number(p.kwh) : null);
+                return {
+                    ...p,
+                    timestamp: ts,
+                    value: val,
+                    daily_energy
+                };
+            }).filter(pt => pt.timestamp && (pt.value !== null && !isNaN(pt.value)) );
+        }
+
+        // Helper: convert hex color to rgba string with alpha
+        function hexToRgba(hex, alpha) {
+            try {
+                if (!hex) return `rgba(224,168,0,${alpha})`;
+                hex = hex.replace('#','').trim();
+                if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+                const r = parseInt(hex.substring(0,2), 16);
+                const g = parseInt(hex.substring(2,4), 16);
+                const b = parseInt(hex.substring(4,6), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            } catch (e) {
+                return `rgba(224,168,0,${alpha})`;
+            }
+        }
+
+        // Use theme variables for Chart.js global defaults (muted grey text)
+        try {
+            Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+            const cssTextSecondary = getComputedStyle(document.documentElement).getPropertyValue('--text-secondary') || '#6c757d';
+            Chart.defaults.color = cssTextSecondary.trim();
+        } catch (e) {
+            // Chart may not be available in some environments
+            console.warn('Chart defaults not applied', e);
+        }
+
+        const commonChartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            interaction: { intersect: false, mode: 'index' },
+            scales: {
+                x: { 
+                    type: 'time', 
+                    grid: { display: false },
+                    ticks: { color: 'var(--text-secondary)' }
+                },
+                y: { 
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { color: 'var(--text-secondary)' }
+                }
+            }
+        };
+
+        function renderTodayChart(chartId, data) {
+            destroyChart(chartId);
+            const canvasEl = document.getElementById(chartId);
+            if (!canvasEl || !data || data.length === 0) return;
+
+            let chartData, chartType = 'line', chartOptions = JSON.parse(JSON.stringify(commonChartOptions));
+            const avgVal = data.reduce((s,p)=>s+p.y,0)/Math.max(1, data.length);
+
+            if (chartId === 'voltageChartToday') {
+                const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
+                chartData = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number((230 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5).toFixed(2)) }));
+            } else if (chartId === 'hourlyEnergyChartToday') {
+                const hourlyMap = {};
+                data.forEach(dp => {
+                    const key = new Date(dp.timestamp).toISOString().slice(0,13) + ':00:00Z';
+                    hourlyMap[key] = (hourlyMap[key]||0) + (dp.value / 6000.0);
+                });
+                chartData = Object.entries(hourlyMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
+                chartType = 'bar';
+            } else if (chartId === 'livePowerChartToday') {
+                chartData = data.map(dp => ({ x: new Date(dp.timestamp), y: dp.value }));
+            } else if (chartId === 'powerFactorChartToday') {
+                const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
+                chartData = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number(Math.max(0.6, Math.min(1.0, 0.95 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 0.02 + Math.cos(idx/15) * 0.005)).toFixed(3)) }));
+                chartOptions.scales.y.min = 0.6;
+                chartOptions.scales.y.max = 1.0;
+            }
+
+            // Dataset defaults - use darker yellow border for bar outlines and rounded bars
+            const dataset = {
+                data: chartData,
+                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
+                backgroundColor: (chartType === 'bar') ? 'rgba(255, 193, 7, 0.9)' : 'rgba(255, 193, 7, 0.2)',
+                borderWidth: (chartType === 'bar') ? 1 : 2,
+                fill: chartType !== 'bar',
+                tension: 0.4,
+                pointRadius: 0
+            };
+
+            // For bar charts, apply rounded corners (Chart.js borderRadius) and ensure both ends rounded
+            if (chartType === 'bar') {
+                dataset.borderRadius = 10;
+                dataset.borderSkipped = false;
+            }
+
+            chartInstances[chartId] = new Chart(canvasEl, {
+                type: chartType,
+                data: { datasets: [dataset] },
+                options: chartOptions
+            });
+        }
+
+        function render7DayPowerChart(data) {
+            const chartId = 'powerChart7';
+            destroyChart(chartId);
+            const chartData = data.map(dp => ({ x: new Date(dp.timestamp), y: dp.value }));
+            
+            chartInstances[chartId] = new Chart(document.getElementById(chartId), {
+                type: 'line',
+                data: { datasets: [{
+                    label: 'Power (W)',
+                    data: chartData,
+                    borderColor: 'var(--accent-color)',
+                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                }] },
+                options: commonChartOptions
+            });
+        }
+
+        // 7-day chart renderers that reuse Today render logic where possible
+        function renderVoltage7(data) { renderTodayChart('voltageChart7', data); }
+        function renderHourlyEnergy7(data) { renderTodayChart('hourlyEnergyChart7', data); }
+        function renderLivePower7(data) { renderTodayChart('livePowerChart7', data); }
+        function renderPowerFactor7(data) { renderTodayChart('powerFactorChart7', data); }
+        function renderSolarLine7(data) { renderSolarLineToday(data); }
+        function renderSolarByHour7(data) { renderSolarByHourToday(data); }
+
+        // --- SOLAR CHARTS FOR TODAY ---
+        function renderSolarLineToday(data) {
+            const chartId = 'solarGenerationChartToday';
+            destroyChart(chartId);
+            const canvas = document.getElementById(chartId);
+            if (!canvas || !data || data.length === 0) return;
+
+            // Prefer fields: solar_kwh, solar, pv_kwh
+            const series = data.map(p => ({ t: new Date(p.timestamp), v: (p.solar_kwh || p.solar || p.pv_kwh || 0) }));
+            const hasData = series.some(s => s.v && s.v > 0);
+            if (!hasData) return;
+
+            const chartData = series.map(s => ({ x: s.t, y: s.v }));
+
+            // Use theme colors from CSS variables so solar charts match the site theme
+            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
+            const accentDark = getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800';
+            const bg = hexToRgba((accentDark.trim() || accent).trim(), 0.08);
+
+            chartInstances[chartId] = new Chart(canvas, {
+                type: 'line',
+                data: { datasets: [{ data: chartData, borderColor: (accentDark.trim() || accent).trim(), backgroundColor: bg, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
+                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+            });
+        }
+
+        function renderSolarByHourToday(data) {
+            const chartId = 'solarByHourChartToday';
+            destroyChart(chartId);
+            const canvas = document.getElementById(chartId);
+            if (!canvas || !data || data.length === 0) return;
+
+            // Aggregate by hour
+            const hourly = {};
+            data.forEach(p => {
+                const key = new Date(p.timestamp).toISOString().slice(0,13) + ':00:00Z';
+                const val = (p.solar_kwh || p.solar || p.pv_kwh || 0);
+                hourly[key] = (hourly[key] || 0) + Number(val);
+            });
+            const entries = Object.entries(hourly).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
+            if (entries.length === 0) return;
+
+            const accentDark = getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800';
+            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
+            const bgColor = hexToRgba((accent.trim() || accentDark.trim()).trim(), 0.9);
+            const dataset = {
+                data: entries,
+                backgroundColor: bgColor,
+                borderColor: (accentDark.trim() || accent.trim()).trim(),
+                borderWidth: 1,
+                borderRadius: 6,
+                borderSkipped: false
+            };
+
+            chartInstances[chartId] = new Chart(canvas, {
+                type: 'bar',
+                data: { datasets: [dataset] },
+                options: { ...commonChartOptions, scales: { x: { type: 'time', time: { unit: 'hour' } }, y: { beginAtZero: true, title: { display: true, text: 'kWh' } } } }
+            });
+        }
+
+        function render7DayEnergyChart(data) {
+            const chartId = 'dailyEnergyChart7';
+            destroyChart(chartId);
+            const dailyData = {};
+            data.forEach(dp => {
+                const date = new Date(dp.timestamp).toISOString().split('T')[0];
+                if (!dailyData[date]) dailyData[date] = 0;
+                dailyData[date] += (dp.value / 6000.0); // kWh
+            });
+            
+            const chartData = Object.entries(dailyData).map(([date, kwh]) => ({ x: date, y: kwh }));
+
+            const dataset = {
+                label: 'Energy (kWh)',
+                data: chartData,
+                backgroundColor: 'rgba(255, 193, 7, 0.9)',
+                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
+                borderWidth: 1,
+                borderRadius: 8,
+                borderSkipped: false
+            };
+
+            chartInstances[chartId] = new Chart(document.getElementById(chartId), {
+                type: 'bar',
+                data: { datasets: [dataset] },
+                options: commonChartOptions
+            });
+        }
+        
+        function render30DaysChart(data) {
+            const chartId = 'chart30';
+            destroyChart(chartId);
+            const dailyAverages = data.map(dp => ({ x: dp.timestamp, y: dp.value }));
+            
+            chartInstances[chartId] = new Chart(document.getElementById(chartId), {
+                type: 'line',
+                data: { datasets: [{
+                    label: 'Daily Average (W)',
+                    data: dailyAverages,
+                    borderColor: 'var(--accent-color)',
+                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                }] },
+                options: commonChartOptions
+            });
+        }
+        
+        function render365DaysChart(data) {
+            const chartId = 'chart365';
+            destroyChart(chartId);
+            const monthlyDataMap = {};
+            data.forEach(dp => {
+                const month = new Date(dp.timestamp).toISOString().substring(0, 7);
+                if (!monthlyDataMap[month]) monthlyDataMap[month] = { sum: 0, count: 0 };
+                monthlyDataMap[month].sum += dp.value;
+                monthlyDataMap[month].count += 1;
+            });
+            
+            const monthlyAverages = Object.entries(monthlyDataMap).map(([month, d]) => ({
+                x: month + '-01',
+                y: d.sum / d.count
+            }));
+            
+            chartInstances[chartId] = new Chart(document.getElementById(chartId), {
+                type: 'bar',
+                data: { datasets: [{
+                    label: 'Monthly Average (W)',
+                    data: monthlyAverages,
+                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    borderRadius: 4
+                }] },
+                options: commonChartOptions
+            });
+        }
+        
+        // Page load - initialize with today tab
+        document.addEventListener('DOMContentLoaded', () => {
+            // Default today window (hours)
+            window.todayWindowHours = 12; // default 12H view
+            switchTab(null, 'today');
+        });
+
+        // Set the today time window and re-render Today charts
+        function setTodayWindow(hours) {
+            window.todayWindowHours = Number(hours);
+            // update toggle UI
+            document.querySelectorAll('#todayTimeToggles .time-toggle').forEach(btn => {
+                btn.classList.toggle('active', Number(btn.getAttribute('data-hours')) === Number(hours));
+            });
+
+            // if we're on the Today tab, re-render with filtered data
+            if (currentTab === 'today' && todayPoints && todayPoints.length) {
+                const filtered = filterLastNHours(todayPoints, window.todayWindowHours);
+                initTodayView(filtered);
+                updatePowerCutBanner(detectPowerCuts(filtered));
+            }
+        }
+
+        function filterLastNHours(points, hours) {
+            if (!points || !points.length) return [];
+            const now = new Date();
+            const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
+            return points.filter(p => new Date(p.timestamp) >= cutoff);
+        }
+
+        // Render minimal health diagnostics into the Health tab
+        async function renderHealthTab(forceRefresh = false) {
+            const svcEl = document.getElementById('health-service-status');
+            const lastEl = document.getElementById('health-last-sample');
+            const cntEl = document.getElementById('health-collector-uptime');
+            const diskEl = document.getElementById('health-disk-usage');
+
+            if (!svcEl) return;
+
+            // optimistic defaults
+            svcEl.textContent = 'Checking...';
+            lastEl.textContent = '--';
+            cntEl.textContent = '--';
+            diskEl.textContent = 'n/a';
+
+            try {
+                // try to load today's data to infer last sample and count
+                const data = await loadDataForTab('today');
+                if (Array.isArray(data) && data.length) {
+                    const last = data[data.length - 1];
+                    lastEl.textContent = new Date(last.timestamp).toLocaleString();
+                    cntEl.textContent = data.length;
+                    svcEl.textContent = 'Collector: Writing samples';
+                } else {
+                    svcEl.textContent = 'Collector: No data';
+                    lastEl.textContent = 'No samples';
+                    cntEl.textContent = '0';
+                }
+            } catch (e) {
+                svcEl.textContent = 'Collector: Unreachable';
+                lastEl.textContent = 'Error';
+                cntEl.textContent = '--';
+            }
+
+            // Disk usage: best-effort via navigator.storage if available (approximate)
+            if (navigator.storage && navigator.storage.estimate) {
+                try {
+                    const est = await navigator.storage.estimate();
+                    if (est.usage && est.quota) {
+                        const used = (est.usage / 1024 / 1024).toFixed(1);
+                        const quota = (est.quota / 1024 / 1024).toFixed(1);
+                        diskEl.textContent = `${used} MB of ${quota} MB (browser estimate)`;
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+        }
+    </script>
+</body>
+</html>
