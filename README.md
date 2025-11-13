@@ -209,7 +209,7 @@ For detailed migration instructions, see [CONFIG_MIGRATION_GUIDE.md](CONFIG_MIGR
 │  └──────────────────────────────────────┘  │
 │                                             │
 │  ┌──────────────────────────────────────┐  │
-│  │   collector.py (cron: every 10min)   │  │
+│  │   collector.py (cron: configurable via `config.json`)   │  │
 │  │   - Fetches Home Assistant data      │  │
 │  │   - Generates HTML dashboard         │  │
 │  │   - Maintains 7-day rolling window   │  │
@@ -277,9 +277,9 @@ powerstats/
 ### Automatic Operation
 
 The system runs automatically via cron:
-- Collects data every 10 minutes
+- Collects data according to intervals defined in `config.json` (`data.local_collection_interval_minutes`)
 - Updates dashboard
-- Publishes to GitHub Pages
+- Publishes to GitHub Pages (schedule: `data.publish_interval_minutes`)
 
 ### Admin Interface
 
@@ -415,8 +415,8 @@ echo "maintenance_mode=false" > /etc/monitor.conf
 - Alpine overhead: ~40MB
 - **Total: ~70MB peak (180MB free)**
 
-### Network
-- Collection: ~5KB per request (every 10 min)
+-### Network
+- Collection: ~5KB per request (interval set via `config.json`)
 - GitHub push: ~50KB per push
 - **Total: <1MB per hour**
 

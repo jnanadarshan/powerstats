@@ -7,7 +7,7 @@ The application now uses **4 separate JSON files** with different retention peri
 1. **daily.json** - Last 24 hours (12:00 AM to 11:59 PM)
    - Stored locally
    - Rotates at midnight automatically
-   - Raw 10-minute interval data
+   - Raw data at the configured collection interval (`data.local_collection_interval_minutes`)
 
 2. **weekly.json** - Rolling 7 days
    - Stored locally
@@ -32,7 +32,7 @@ The application now uses **4 separate JSON files** with different retention peri
 │ (Power Sensor)                                              │
 └────────────────┬────────────────────────────────────────────┘
                  │
-                 │ Every 10 minutes (collector.py)
+                 │ Collector runs at configured interval (see `config.json`)
                  ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ daily.json (Local Storage)                                  │
@@ -73,9 +73,9 @@ The application now uses **4 separate JSON files** with different retention peri
 
 ## Components
 
-### 1. collector.py (Updated)
-- Collects data from Home Assistant every 10 minutes
-- Writes to `daily.json`
+-### 1. collector.py (Updated)
+- Collects data from Home Assistant at the configured interval (`data.local_collection_interval_minutes`)
+- - Writes to `daily.json`
 - Automatically rotates file at midnight
 - Only keeps data from 00:00:00 to current time
 

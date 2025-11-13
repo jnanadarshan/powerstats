@@ -56,7 +56,7 @@ sudo sh install.sh
 The script will:
 1. ✓ Validate config.json
 2. ✓ Install Python, lighttpd, and dependencies (~40 MB)
-3. ✓ Setup cron jobs (data collection every 10 minutes)
+3. ✓ Setup cron jobs (data collection schedule is configurable via `config.json`)
 4. ✓ Install application files
 5. ✓ Validate GitHub API access
 6. ✓ Validate Home Assistant API access
@@ -76,13 +76,13 @@ The device IP will be shown at the end of installation.
 
 ### Automatic Operations
 
-- **Data Collection**: Every 10 minutes via cron
-  - Fetches power data from Home Assistant
-  - Updates local JSON files (daily, weekly)
-  
-- **Data Publishing**: Every 10 minutes (offset by 5 min)
-  - Syncs monthly and yearly data to GitHub
-  - Updates GitHub Pages
+- **Data Collection**: Schedule defined in `config.json` (`data.local_collection_interval_minutes`)
+   - Fetches power data from Home Assistant
+   - Updates local JSON files (daily, weekly)
+
+- **Data Publishing**: Schedule defined in `config.json` (`data.publish_interval_minutes`)
+   - Syncs monthly and yearly data to GitHub
+   - Updates GitHub Pages
 
 ### Manual Operations
 
@@ -201,7 +201,7 @@ If you need to change settings after installation:
 
 2. Save changes (Ctrl+X, then Y in vi)
 
-3. Changes take effect on next cron run (within 10 minutes)
+3. Changes take effect on next cron run (within the configured interval)
    Or trigger manually:
    ```bash
    python3 /opt/power-monitor/collector.py
