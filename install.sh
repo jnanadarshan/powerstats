@@ -169,7 +169,7 @@ cat > "$LOGROTATE_CONF" << 'LR'
     delaycompress
     missingok
     notifempty
-    create 644 root root
+    create 644 lighttpd lighttpd
     sharedscripts
     postrotate
         # no-op; logs are plain files appended by cron jobs
@@ -233,6 +233,25 @@ cp "$SCRIPT_DIR"/var/www/html/admin.cgi /var/www/html/
 # Copy config.json to application directory
 cp "$SCRIPT_DIR"/config.json /opt/power-monitor/config.json
 
+# Write thresholds.json into web root so dashboard can load voltage thresholds
+THRESH_FILE="/var/www/html/thresholds.json"
+log_info "Writing thresholds file to ${THRESH_FILE} from config.json"
+python3 - <<'PY' > "${THRESH_FILE}"
+import json
+import sys
+cfg=json.load(open('/opt/power-monitor/config.json'))
+out={}
+vt = cfg.get('voltage_threshold') or cfg.get('voltage_thresholds') or cfg.get('thresholds') or cfg.get('voltage')
+if vt and isinstance(vt, dict):
+    out['voltage_threshold'] = { 'UL': vt.get('UL', 250), 'LL': vt.get('LL', 220) }
+else:
+    out['voltage_threshold'] = { 'UL': 250, 'LL': 220 }
+json.dump(out, sys.stdout)
+PY
+chown root:root "${THRESH_FILE}" || true
+chmod 644 "${THRESH_FILE}" || true
+log_success "Wrote ${THRESH_FILE}"
+
 # Set permissions
 log_info "Setting permissions..."
 chmod +x /opt/power-monitor/*.py
@@ -240,7 +259,15 @@ chmod +x /var/www/html/admin.cgi
 chmod 755 /opt/power-monitor
 chmod 755 /var/www/html
 chmod 644 /opt/power-monitor/templates/dashboard.html
-chmod 600 /opt/power-monitor/config.json
+## Secure config but allow webserver read access when appropriate
+if id -u lighttpd > /dev/null 2>&1; then
+    # Give root ownership but allow lighttpd group read access
+    chown root:lighttpd /opt/power-monitor/config.json || true
+    chmod 640 /opt/power-monitor/config.json || true
+else
+    # Fallback: restrict to owner only
+    chmod 600 /opt/power-monitor/config.json || true
+fi
 
 # Create symlink for easy config access
 ln -sf /opt/power-monitor/config.json /root/config.json
@@ -254,8 +281,14 @@ log_info "Configuring cron jobs for data collection..."
 mkdir -p /var/log
 : > /var/log/power-monitor-collector.log 2>/dev/null || true
 : > /var/log/power-monitor-publisher.log 2>/dev/null || true
-chown root:root /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
-chmod 644 /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
+# Ensure webserver user can write the logs (lighttpd runs CGI as 'lighttpd')
+if id -u lighttpd > /dev/null 2>&1; then
+    chown lighttpd:lighttpd /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
+    chmod 644 /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
+else
+    # Fallback: make logs world-writable if webserver user not present
+    chmod 666 /var/log/power-monitor-collector.log /var/log/power-monitor-publisher.log || true
+fi
 
 # Preferred on Alpine: append to system crontab at /etc/crontabs/root (no user column)
 CRONTAB_FILE="/etc/crontabs/root"

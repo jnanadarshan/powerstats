@@ -36,6 +36,10 @@
     "web_root": "/var/www/html",
     "data_dir": "/var/www/html"
   },
+  "voltage_threshold": {
+    "UL": 250,
+    "LL": 220
+  },
   "comments": {
     "info": "Power monitoring system maintains 4 JSON files",
     "files": {
