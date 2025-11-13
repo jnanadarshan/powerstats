@@ -48,7 +48,7 @@
         /* Dark theme overrides (applies when html[data-theme="dark"]) */
         html[data-theme="dark"] {
             --bg-gradient: linear-gradient(180deg, #0b1020 0%, #071124 100%);
-            --surface-color: #0F1720; /* dark card surface */
+            --surface-color: #0F1720; /* site surface */
             --text-primary: #E6EEF6;
             --text-secondary: #9AA6B2;
             --accent-color: #FFD166;
@@ -204,7 +204,7 @@
 
         /* Power Status Banner */
         .power-status-banner {
-            background: var(--surface-color);
+            background: var(--card-surface);
             border-radius: var(--border-radius);
             padding: 12px;
             margin-bottom: 12px;
@@ -294,7 +294,7 @@
 
         /* Cards */
         .stat-card, .chart-card {
-            background: var(--surface-color);
+            background: var(--card-surface);
             border-radius: var(--border-radius);
             padding: 14px; /* restored comfortable card padding */
             box-shadow: var(--card-shadow);
@@ -318,9 +318,9 @@
             align-items: center;
             justify-content: center;
             margin-right: 8px;
-            background: var(--recent-bg);
+            background: var(--icon-bg);
         }
-        .mini-stat .mini-icon .material-symbols-outlined { font-size: 18px; color: var(--text-primary); }
+        .mini-stat .mini-icon .material-symbols-outlined { font-size: 18px; color: var(--icon-color); }
         .mini-stat .stat-card-title { font-size: 0.78rem; color: var(--text-secondary); }
         .mini-stat .stat-card-value { font-size: 1.1rem; font-weight: 700; }
 
@@ -347,12 +347,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: #F8F9FA;
+            background-color: var(--icon-bg);
         }
 
         .stat-card-icon .material-symbols-outlined {
             font-size: 28px;
-            color: var(--text-primary);
+            color: var(--icon-color);
         }
 
         .stat-card-title {
@@ -434,7 +434,7 @@
 
         /* Help Tab */
         .help-content {
-            background: var(--surface-color);
+            background: var(--card-surface);
             border-radius: var(--border-radius);
             padding: 40px;
             box-shadow: var(--card-shadow);
@@ -517,6 +517,9 @@
                 justify-content: space-around;
                 margin-top: 16px;
             }
+            /* Make mini-stat cards wrap on narrower screens */
+            .power-banner-meta { flex-wrap: wrap; }
+            .mini-stat { flex: 1 1 160px; width: auto; min-width: 0; }
         }
 
         @media (max-width: 768px) {
@@ -542,10 +545,14 @@
             .nav-tabs .nav-tab { width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px; }
             .stats-grid { grid-template-columns: 1fr 1fr; }
             .stat-card-value { font-size: 2rem; }
+            /* Tablet: allow mini-stat to take half width and wrap */
+            .mini-stat { flex: 1 1 calc(50% - 8px); width: auto; min-width: 0; }
         }
 
         @media (max-width: 480px) {
             .stats-grid { grid-template-columns: 1fr; }
+            /* Mobile: stack mini-stat cards full width */
+            .mini-stat { flex: 1 1 100%; width: auto; min-width: 0; }
         }
         /* Recent value indicator inside stat cards */
         .recent-indicator {

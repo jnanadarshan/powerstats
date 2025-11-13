@@ -7,6 +7,19 @@
   --muted: #868e96;
   --surface-color: #ffffff;
   --card-shadow: 0 8px 24px rgba(0,0,0,0.04);
+
+  /* Icon and card surface variables (configurable here) */
+  --icon-bg: #F8F9FA;
+  --icon-color: var(--text-primary);
+  --card-surface: var(--surface-color);
+}
+
+/* Dark theme overrides for card surface and icons */
+html[data-theme="dark"] {
+  --card-surface: rgba(61, 59, 59, 0.56); /* translucent white for cards; adjust to taste */
+  --icon-bg: rgba(255,255,255,0.06);
+  --icon-color: #0F1720; /* dark icons on light card surface for contrast */
+  --card-shadow: 0 10px 30px rgba(0,0,0,0.6);
 }
 
 /* Tone down chart headers and text */
