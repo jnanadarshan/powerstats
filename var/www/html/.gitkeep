@@ -1,0 +1,3 @@
+# This file ensures the var/www/html/ directory is tracked by git
+# while allowing JSON data files (daily.json, weekly.json, etc.) to be ignored
+# See .gitignore for exclusion rules

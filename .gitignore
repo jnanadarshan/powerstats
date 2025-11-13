@@ -21,5 +21,15 @@ build/
 .env
 venv/
 env/
-# Root dashboard data that changes frequently; keep local copy but do not track
+# Data files that are updated frequently by the device (keep local, never track)
+# These cause merge conflicts since device updates them every few minutes
 daily.json
+var/www/html/daily.json
+var/www/html/weekly.json
+var/www/html/monthly.json
+var/www/html/yearly.json
+var/www/html/data.json
+
+# Collected power data (local only)
+var/www/html/*.json
+
