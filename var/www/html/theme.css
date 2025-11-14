@@ -413,3 +413,29 @@ footer { text-align: center; color: var(--text-secondary); font-size: 0.85rem; m
 
 /* End moved styles */
 
+/* Hide the inline today toggles (we'll use a floating control instead) */
+#todayTimeToggles { display: none !important; }
+
+/* Floating time toggles (shown when user scrolls near charts) */
+.floating-time-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 18px;
+  z-index: 1400;
+  display: flex;
+  gap: 8px;
+  background: rgba(0,0,0,0.02);
+  padding: 6px;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.12);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.floating-time-toggle .time-toggle {
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  border-radius: 999px;
+}
+.floating-time-toggle.hidden { display: none !important; }
+
+

@@ -470,6 +470,13 @@
             </div>
         </main>
 
+        <!-- Floating time toggles: appear bottom-right when user scrolls near charts -->
+        <div id="floatingTimeToggles" class="floating-time-toggle hidden" aria-hidden="true">
+            <button class="time-toggle" data-hours="6" onclick="setTodayWindow(6)">6H</button>
+            <button class="time-toggle" data-hours="12" onclick="setTodayWindow(12)">12H</button>
+            <button class="time-toggle active" data-hours="24" onclick="setTodayWindow(24)">24H</button>
+        </div>
+
         <footer>
             <p id="footer-last-updated">Last updated: --</p>
             <p>Power Monitoring System v3.0</p>
@@ -1606,8 +1613,8 @@
         // Set the today time window and re-render Today charts
         function setTodayWindow(hours) {
             window.todayWindowHours = Number(hours);
-            // update toggle UI
-            document.querySelectorAll('#todayTimeToggles .time-toggle').forEach(btn => {
+            // update toggle UI for both inline and floating controls
+            document.querySelectorAll('#todayTimeToggles .time-toggle, #floatingTimeToggles .time-toggle').forEach(btn => {
                 btn.classList.toggle('active', Number(btn.getAttribute('data-hours')) === Number(hours));
             });
 
@@ -1625,6 +1632,33 @@
             const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
             return points.filter(p => new Date(p.timestamp) >= cutoff);
         }
+
+        // Show floating toggles when user scrolls near charts
+        (function setupFloatingTimeToggles(){
+            const floating = document.getElementById('floatingTimeToggles');
+            const chartsGrid = document.querySelector('.charts-grid');
+            if (!floating || !chartsGrid) return;
+
+            function check() {
+                const rect = chartsGrid.getBoundingClientRect();
+                // If charts are partially visible (near top of viewport), show toggles
+                const shouldShow = rect.top < window.innerHeight - 120 && rect.bottom > 80;
+                if (shouldShow) {
+                    floating.classList.remove('hidden');
+                    floating.setAttribute('aria-hidden','false');
+                } else {
+                    floating.classList.add('hidden');
+                    floating.setAttribute('aria-hidden','true');
+                }
+            }
+
+            // Throttle scroll handler
+            let t = null;
+            window.addEventListener('scroll', () => { if (t) cancelAnimationFrame(t); t = requestAnimationFrame(check); }, { passive: true });
+            window.addEventListener('resize', () => { if (t) cancelAnimationFrame(t); t = requestAnimationFrame(check); });
+            // Initial check
+            document.addEventListener('DOMContentLoaded', () => setTimeout(check, 120));
+        })();
 
         // Render minimal health diagnostics into the Health tab
         async function renderHealthTab(forceRefresh = false) {
