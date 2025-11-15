@@ -261,8 +261,24 @@ def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
     # Recent logs (try to load from log file)
     log_content_full = '<div class="log-line" style="color: #888;">No logs available</div>'
     log_content_short = '<div class="log-line" style="color: #888;">No logs available</div>'
-    log_file = '/var/log/power-monitor.log'
-    if os.path.exists(log_file):
+    
+    # Try to find log files in multiple locations
+    log_files_to_check = [
+        '/var/log/power-monitor.log',
+        '/var/log/power-monitor-collector.log',
+        '/var/log/power-monitor-publisher.log',
+        '/var/log/power-monitor-scheduler.log',
+        '/opt/power-monitor/logs/power-monitor.log',
+        '/tmp/power-monitor.log'
+    ]
+    
+    log_file = None
+    for potential_log in log_files_to_check:
+        if os.path.exists(potential_log):
+            log_file = potential_log
+            break
+    
+    if log_file:
         try:
             recent_logs = get_recent_logs(log_file, lines=100)
             if recent_logs:
@@ -297,6 +313,10 @@ def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
                 log_content_short = '\n'.join(log_lines_short) if log_lines_short else log_content_short
         except:
             pass
+    else:
+        # If no log file found, try to create sample log info
+        log_content_full = '<div class="log-line" style="color: #888;">No log files found in:<br>' + '<br>'.join(log_files_to_check) + '</div>'
+        log_content_short = '<div class="log-line" style="color: #888;">Logging not yet configured</div>'
     
     replacements['LOG_CONTENT'] = log_content_full
     replacements['LOG_CONTENT_SHORT'] = log_content_short
@@ -383,15 +403,39 @@ def get_system_metrics(config) -> dict:
         python_version = sys.version.split()[0]
         metrics['system']['python_version'] = python_version
         
-        # Try to check cron jobs
+        # Try to check cron jobs - multiple methods for compatibility
+        cron_count = 0
         try:
+            # Method 1: Try crontab (works on Linux with cron daemon)
             result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 cron_lines = result.stdout.strip().split('\n')
                 active_jobs = [line for line in cron_lines if line and not line.startswith('#')]
-                metrics['system']['cron_jobs'] = len(active_jobs)
+                cron_count = len(active_jobs)
         except:
-            metrics['system']['cron_jobs'] = 'Unknown'
+            pass
+        
+        # Method 2: Check if scheduler.py is running via ps (alternative detection)
+        if cron_count == 0:
+            try:
+                result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
+                scheduler_lines = [line for line in result.stdout.split('\n') if 'scheduler.py' in line and 'grep' not in line]
+                if scheduler_lines:
+                    cron_count = len(scheduler_lines)
+            except:
+                pass
+        
+        # Method 3: Check systemd service status for power-monitor-scheduler
+        if cron_count == 0:
+            try:
+                result = subprocess.run(['systemctl', 'is-active', 'power-monitor-scheduler'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and 'active' in result.stdout.lower():
+                    cron_count = 1  # Service is active
+            except:
+                pass
+        
+        metrics['system']['cron_jobs'] = cron_count if cron_count > 0 else 'Unknown'
             
     except Exception as e:
         metrics['system']['error'] = str(e)
