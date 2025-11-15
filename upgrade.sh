@@ -163,11 +163,11 @@ upgrade_ui_files() {
 
 upgrade_templates() {
   echo ""
-  echo "==> Upgrading template files in /opt/power-monitor/templates"
+  echo "==> Upgrading template files"
 
   TEMPLATE_FILES="
     opt/power-monitor/templates/dashboard.html
-    opt/power-monitor/templates/admin_dashboard.html
+    var/www/html/admin_dashboard.html
   "
 
   FAILED=0
@@ -185,6 +185,7 @@ upgrade_templates() {
   # Set permissions
   echo "==> Setting permissions on template files"
   chmod 644 /opt/power-monitor/templates/* 2>/dev/null || true
+  chmod 644 /var/www/html/admin_dashboard.html 2>/dev/null || true
 }
 
 upgrade_backend_files() {

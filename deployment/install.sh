@@ -74,12 +74,10 @@ fi
 
 # Copy templates
 cp ../opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
-if [ -f ../opt/power-monitor/templates/admin_dashboard.html ]; then
-    cp ../opt/power-monitor/templates/admin_dashboard.html /opt/power-monitor/templates/
-fi
 
 # Copy web files
 cp ../var/www/html/admin.cgi /var/www/html/
+cp ../var/www/html/admin_dashboard.html /var/www/html/
 cp ../var/www/html/health.cgi /var/www/html/
 chmod +x /var/www/html/admin.cgi
 chmod +x /var/www/html/health.cgi
@@ -92,9 +90,7 @@ chmod +x /opt/power-monitor/health.py
 chmod 755 /opt/power-monitor
 chmod 755 /var/www/html
 chmod 644 /opt/power-monitor/templates/dashboard.html
-if [ -f /opt/power-monitor/templates/admin_dashboard.html ]; then
-    chmod 644 /opt/power-monitor/templates/admin_dashboard.html
-fi
+chmod 644 /var/www/html/admin_dashboard.html
 
 # Configure lighttpd
 echo "Configuring lighttpd..."

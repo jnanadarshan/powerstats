@@ -89,7 +89,7 @@ main() {
   cd "$TMPDIR"
   # fetch only UI paths: var/www/html and HELP_CONSOLIDATED.md (if present)
   git sparse-checkout init --cone >/dev/null 2>&1 || true
-  git sparse-checkout set var/www/html HELP_CONSOLIDATED.md opt/power-monitor/templates >/dev/null 2>&1 || true
+  git sparse-checkout set var/www/html HELP_CONSOLIDATED.md >/dev/null 2>&1 || true
 
   echo "Sparse checkout complete. Available paths:"
   ls -la var/www/html 2>/dev/null || true

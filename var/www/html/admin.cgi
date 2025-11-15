@@ -117,6 +117,198 @@ def get_file_size(filepath: str) -> str:
     return f"{size:.1f} TB"
 
 
+def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
+    """Render the admin dashboard from template"""
+    template_path = '/var/www/html/admin_dashboard.html'
+    
+    # Load template
+    try:
+        with open(template_path, 'r') as f:
+            template = f.read()
+    except FileNotFoundError:
+        # Fallback if template not found
+        return f"Content-Type: text/html\n\n<h1>Template not found: {template_path}</h1>"
+    
+    # Build replacements
+    replacements = {}
+    
+    # Admin user info
+    admin_username = config.get('admin.username', 'admin') if config else 'admin'
+    replacements['ADMIN_USER'] = admin_username
+    replacements['ADMIN_INITIAL'] = admin_username[0].upper()
+    
+    # Header status
+    if metrics['maintenance_mode']:
+        replacements['STATUS_CLASS'] = 'maintenance'
+        replacements['STATUS_ICON'] = 'build'
+        replacements['STATUS_TEXT'] = 'Maintenance Mode'
+    else:
+        replacements['STATUS_CLASS'] = 'normal'
+        replacements['STATUS_ICON'] = 'check_circle'
+        replacements['STATUS_TEXT'] = 'System Normal'
+    
+    replacements['CURRENT_TIME'] = metrics['current_time']
+    
+    # Message banner
+    if message:
+        msg_class = 'success' if 'success' in message.lower() or 'enabled' in message.lower() or 'synced' in message.lower() else 'error'
+        msg_icon = 'check_circle' if msg_class == 'success' else 'error'
+        replacements['MESSAGE_BANNER'] = f'''<div class="message {msg_class}" style="margin-bottom: 20px;">
+            <span class="material-icons">{msg_icon}</span>
+            {message}
+        </div>'''
+    else:
+        replacements['MESSAGE_BANNER'] = ''
+    
+    # Maintenance button
+    if metrics['maintenance_mode']:
+        replacements['MAINTENANCE_BTN_CLASS'] = 'primary'
+        replacements['MAINTENANCE_ICON'] = 'power'
+        replacements['MAINTENANCE_TEXT'] = 'Disable Maintenance'
+    else:
+        replacements['MAINTENANCE_BTN_CLASS'] = 'danger'
+        replacements['MAINTENANCE_ICON'] = 'build'
+        replacements['MAINTENANCE_TEXT'] = 'Enable Maintenance'
+    
+    # GitHub disabled state
+    replacements['GITHUB_DISABLED'] = '' if metrics['github']['enabled'] else 'disabled title="GitHub not configured"'
+    
+    # Stats for dashboard cards
+    active_files = sum(1 for info in metrics['data_files'].values() if info.get('exists', False))
+    total_files = len(metrics['data_files'])
+    replacements['ACTIVE_FILES'] = str(active_files)
+    replacements['TOTAL_FILES'] = str(total_files)
+    replacements['ACTIVE_FILES_PCT'] = str(int((active_files / total_files * 100) if total_files > 0 else 0))
+    
+    # Data files table rows (dashboard view)
+    data_files_html = []
+    for filename, info in metrics['data_files'].items():
+        if info['exists']:
+            badge = '<span class="badge success">Active</span>'
+            points = info['points']
+            age = info.get('age', 'Unknown')
+        else:
+            badge = '<span class="badge error">Missing</span>'
+            points = 0
+            age = 'Never'
+        
+        data_files_html.append(f'''<tr>
+            <td>{filename} {badge}</td>
+            <td>{points:,}</td>
+            <td style="font-size: 0.85em; color: var(--text-secondary);">{age}</td>
+        </tr>''')
+    replacements['DATA_FILES_ROWS'] = '\n'.join(data_files_html)
+    
+    # Data files detailed table (data files section)
+    data_files_detailed = []
+    for filename, info in metrics['data_files'].items():
+        if info['exists']:
+            status = '<span class="badge success">Active</span>'
+            points = f"{info['points']:,}"
+            last_update = info.get('last_update', 'Unknown')
+            file_size = info.get('size', '0 B')
+            age = info.get('age', 'Unknown')
+        else:
+            status = '<span class="badge error">Missing</span>'
+            points = '0'
+            last_update = 'N/A'
+            file_size = '0 B'
+            age = 'Never'
+        
+        data_files_detailed.append(f'''<tr>
+            <td style="font-weight: 600;">{filename}</td>
+            <td>{status}</td>
+            <td>{points}</td>
+            <td style="font-size: 0.85em;">{last_update}</td>
+            <td style="font-size: 0.85em;">{file_size}</td>
+            <td style="font-size: 0.85em; color: var(--text-secondary);">{age}</td>
+        </tr>''')
+    replacements['DATA_FILES_DETAILED_ROWS'] = '\n'.join(data_files_detailed)
+    
+    # Collection settings
+    replacements['COLLECTION_INTERVAL'] = str(metrics['collection']['interval'])
+    replacements['PUBLISH_INTERVAL'] = str(metrics['collection']['publish_interval'])
+    replacements['RETENTION_DAYS'] = str(metrics['collection']['retention_days'])
+    replacements['HEALTH_INTERVAL'] = str(metrics['collection']['health_check_interval'])
+    
+    # GitHub info
+    if metrics['github']['enabled']:
+        replacements['GITHUB_STATUS'] = 'Enabled'
+        replacements['GITHUB_STATUS_CLASS'] = 'success'
+    else:
+        replacements['GITHUB_STATUS'] = 'Not Configured'
+        replacements['GITHUB_STATUS_CLASS'] = 'error'
+    
+    github_repo = metrics['github']['repo']
+    replacements['GITHUB_REPO'] = github_repo
+    replacements['GITHUB_BRANCH'] = metrics['github']['branch']
+    
+    # Extract owner and repo name from full path
+    if '/' in github_repo:
+        owner, repo_name = github_repo.split('/', 1)
+        replacements['GITHUB_OWNER'] = owner
+        replacements['GITHUB_REPO_NAME'] = repo_name
+    else:
+        replacements['GITHUB_OWNER'] = 'unknown'
+        replacements['GITHUB_REPO_NAME'] = github_repo
+    
+    # System info
+    replacements['TOTAL_POINTS'] = f"{metrics['system']['total_data_points']:,}"
+    replacements['PYTHON_VERSION'] = metrics['system'].get('python_version', 'Unknown')
+    replacements['CRON_JOBS'] = str(metrics['system'].get('cron_jobs', 'Unknown'))
+    replacements['WEB_ROOT'] = metrics['system'].get('web_root', '/var/www/html')
+    
+    # Recent logs (try to load from log file)
+    log_content_full = '<div class="log-line" style="color: #888;">No logs available</div>'
+    log_content_short = '<div class="log-line" style="color: #888;">No logs available</div>'
+    log_file = '/var/log/power-monitor.log'
+    if os.path.exists(log_file):
+        try:
+            recent_logs = get_recent_logs(log_file, lines=100)
+            if recent_logs:
+                # Full logs for logs section
+                log_lines_full = []
+                for line in recent_logs[-50:]:  # Last 50 lines
+                    line = line.strip()
+                    if line:
+                        if 'ERROR' in line or 'CRITICAL' in line:
+                            log_lines_full.append(f'<div class="log-line" style="color: #ef4444;">{line}</div>')
+                        elif 'WARNING' in line:
+                            log_lines_full.append(f'<div class="log-line" style="color: #f59e0b;">{line}</div>')
+                        elif 'INFO' in line:
+                            log_lines_full.append(f'<div class="log-line" style="color: #3b82f6;">{line}</div>')
+                        else:
+                            log_lines_full.append(f'<div class="log-line">{line}</div>')
+                log_content_full = '\n'.join(log_lines_full) if log_lines_full else log_content_full
+                
+                # Short logs for dashboard
+                log_lines_short = []
+                for line in recent_logs[-20:]:  # Last 20 lines
+                    line = line.strip()
+                    if line:
+                        if 'ERROR' in line or 'CRITICAL' in line:
+                            log_lines_short.append(f'<div class="log-line" style="color: #ef4444;">{line}</div>')
+                        elif 'WARNING' in line:
+                            log_lines_short.append(f'<div class="log-line" style="color: #f59e0b;">{line}</div>')
+                        elif 'INFO' in line:
+                            log_lines_short.append(f'<div class="log-line" style="color: #3b82f6;">{line}</div>')
+                        else:
+                            log_lines_short.append(f'<div class="log-line">{line}</div>')
+                log_content_short = '\n'.join(log_lines_short) if log_lines_short else log_content_short
+        except:
+            pass
+    
+    replacements['LOG_CONTENT'] = log_content_full
+    replacements['LOG_CONTENT_SHORT'] = log_content_short
+    
+    # Apply all replacements
+    output = template
+    for key, value in replacements.items():
+        output = output.replace('{{' + key + '}}', str(value))
+    
+    return "Content-Type: text/html\n\n" + output
+
+
 def get_system_metrics(config) -> dict:
     """Get comprehensive system metrics"""
     metrics = {
@@ -168,6 +360,7 @@ def get_system_metrics(config) -> dict:
             }
     
     metrics['system']['total_data_points'] = total_points
+    metrics['system']['web_root'] = web_root
     
     # Collection settings
     metrics['collection'] = {
@@ -391,15 +584,8 @@ def main():
             message = result['message']
             metrics = get_system_metrics(config)
         
-        # Render dashboard
-        print("Content-Type: text/html\n")
-        print(f"<!DOCTYPE html><html><body>")
-        print(f"<h1>Admin Dashboard</h1>")
-        print(f"<p>Status: {'Maintenance' if metrics['maintenance_mode'] else 'Normal'}</p>")
-        print(f"<p>Data Points: {metrics['system']['total_data_points']}</p>")
-        if message:
-            print(f"<p><b>{message}</b></p>")
-        print("</body></html>")
+        # Render dashboard with template
+        print(render_dashboard(metrics, message, config))
         
     except Exception as e:
         print("Content-Type: text/html\n")
