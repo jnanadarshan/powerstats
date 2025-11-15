@@ -23,7 +23,7 @@
   },
   "data": {
     "retention_days": 7,
-    "local_collection_interval_minutes": 10,
+    "local_collection_interval_minutes": 2,
     "publish_interval_minutes": 60,
     "health_check_interval_seconds": 10
   },

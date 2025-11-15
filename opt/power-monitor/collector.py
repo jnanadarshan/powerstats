@@ -255,9 +255,38 @@ def main():
         # The collector only writes to the daily file.
         daily_data_file = os.path.join(config.web_root, 'daily.json')
         
+        # Determine how many points to keep in daily.json based on collection
+        # interval. Prefer the device-local key `local_collection_interval_minutes`
+        # in `data` section of the config; fall back to the legacy
+        # `collection_interval_minutes` exposed via config.collection_interval.
+        try:
+            local_iv = config.get('data.local_collection_interval_minutes')
+        except Exception:
+            local_iv = None
+
+        if local_iv is None:
+            interval_min = config.collection_interval
+        else:
+            try:
+                interval_min = int(local_iv)
+            except Exception:
+                interval_min = config.collection_interval
+
+        # Sanity-check interval and compute points-per-day
+        try:
+            interval_min = int(interval_min)
+        except Exception:
+            interval_min = 10
+
+        if interval_min <= 0:
+            interval_min = 10
+
+        points_per_day = max(1, int(24 * 60 / interval_min))
+        logger.info(f"Collection interval: {interval_min} minutes -> storing {points_per_day} points in daily.json")
+
         data_manager = DataManager(
             daily_data_file,
-            max_points=144 # 24 hours * 6 points/hour
+            max_points=points_per_day
         )
         
         # Fetch current states for all entities

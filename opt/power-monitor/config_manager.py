@@ -194,8 +194,19 @@ class ConfigManager:
     
     @property
     def collection_interval(self) -> int:
-        """Collection interval in minutes"""
+        """Collection interval in minutes (legacy property - prefer local_collection_interval)"""
         return self.config['data'].get('collection_interval_minutes', 10)
+    
+    @property
+    def local_collection_interval(self) -> int:
+        """Local collection interval in minutes (device-side data collection frequency)"""
+        return self.config['data'].get('local_collection_interval_minutes', 
+                                       self.config['data'].get('collection_interval_minutes', 10))
+    
+    @property
+    def publish_interval(self) -> int:
+        """Publish interval in minutes (GitHub publishing frequency)"""
+        return self.config['data'].get('publish_interval_minutes', 60)
     
     @property
     def state_file(self) -> str:

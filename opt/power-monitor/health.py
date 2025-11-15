@@ -106,8 +106,14 @@ class SystemHealth:
                         ist_offset = timedelta(hours=5, minutes=30)
                         last_update_ist = last_update_utc + ist_offset
             
-            # Collection interval (10 minutes from cron)
-            collection_interval_minutes = 10
+            # Collection interval from config
+            try:
+                from config_manager import get_config
+                config = get_config()
+                collection_interval_minutes = config.local_collection_interval
+            except Exception as e:
+                logger.warning(f"Could not read collection interval from config: {e}")
+                collection_interval_minutes = 10
             
             # Calculate next collection time
             next_collection_utc = None
