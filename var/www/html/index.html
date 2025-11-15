@@ -1242,6 +1242,23 @@
                 chartOptions.scales.y.max = 1.0;
             }
 
+            // Simplify axis labels/legends for specific charts (match Solar charts style)
+            // Apply compact axis configuration for voltage, hourly energy and power factor
+            try {
+                const gridColor = cssGridColor.trim();
+                if (chartId.includes('voltageChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6, color: cssTextSecondary.trim() } };
+                    chartOptions.scales.y = { grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4, color: cssTextSecondary.trim() }, title: { display: false } };
+                } else if (chartId.includes('hourlyEnergyChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } };
+                    chartOptions.scales.y = { beginAtZero: true, grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
+                    chartType = 'bar';
+                } else if (chartId.includes('powerFactorChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } };
+                    chartOptions.scales.y = { min: 0.6, max: 1.0, grid: { color: gridColor }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
+                }
+            } catch (e) { /* ignore theme errors */ }
+
             // Dataset defaults - use darker yellow border for bar outlines and rounded bars
             const dataset = {
                 data: chartData,
