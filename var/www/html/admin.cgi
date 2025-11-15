@@ -256,6 +256,7 @@ def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
     replacements['TOTAL_POINTS'] = f"{metrics['system']['total_data_points']:,}"
     replacements['PYTHON_VERSION'] = metrics['system'].get('python_version', 'Unknown')
     replacements['CRON_JOBS'] = str(metrics['system'].get('cron_jobs', 'Unknown'))
+    replacements['CRON_STATUS'] = str(metrics['system'].get('cron_status', 'Unable to detect'))
     replacements['WEB_ROOT'] = metrics['system'].get('web_root', '/var/www/html')
     
     # Recent logs (try to load from log file)
@@ -421,42 +422,82 @@ def get_system_metrics(config) -> dict:
         python_version = sys.version.split()[0]
         metrics['system']['python_version'] = python_version
         
-        # Try to check cron jobs - multiple methods for compatibility
-        cron_count = 0
+        # Try to check cron jobs - multiple methods for compatibility with Alpine
+        cron_jobs = []
+        cron_status = "Not found"
+        
         try:
-            # Method 1: Try crontab (works on Linux with cron daemon)
+            # Method 1: Try crontab -l (primary method for Alpine Linux)
             result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
-            if result.returncode == 0:
+            if result.returncode == 0 and result.stdout.strip():
                 cron_lines = result.stdout.strip().split('\n')
-                active_jobs = [line for line in cron_lines if line and not line.startswith('#')]
-                cron_count = len(active_jobs)
-        except:
+                # Filter out comments and empty lines
+                active_jobs = [line.strip() for line in cron_lines if line.strip() and not line.strip().startswith('#')]
+                if active_jobs:
+                    cron_jobs = active_jobs
+                    cron_status = f"Found {len(active_jobs)} job(s)"
+        except Exception as e1:
+            # crontab might not be available or user might not have cron
             pass
         
-        # Method 2: Check if scheduler.py is running via ps (alternative detection)
-        if cron_count == 0:
+        # Method 2: Check if scheduler.py process is running
+        if not cron_jobs:
             try:
                 result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
-                scheduler_lines = [line for line in result.stdout.split('\n') if 'scheduler.py' in line and 'grep' not in line]
+                scheduler_lines = [line for line in result.stdout.split('\n') 
+                                 if 'scheduler.py' in line and 'grep' not in line and 'admin.cgi' not in line]
                 if scheduler_lines:
-                    cron_count = len(scheduler_lines)
-            except:
+                    cron_jobs = scheduler_lines
+                    cron_status = f"Scheduler running ({len(scheduler_lines)} process)"
+            except Exception as e2:
                 pass
         
-        # Method 3: Check systemd service status for power-monitor-scheduler
-        if cron_count == 0:
+        # Method 3: Check systemd service status
+        if not cron_jobs:
             try:
                 result = subprocess.run(['systemctl', 'is-active', 'power-monitor-scheduler'], 
                                       capture_output=True, text=True, timeout=5)
                 if result.returncode == 0 and 'active' in result.stdout.lower():
-                    cron_count = 1  # Service is active
+                    cron_jobs = ['systemd service: power-monitor-scheduler']
+                    cron_status = "Service active"
+            except Exception as e3:
+                pass
+        
+        # Method 4: Check /etc/crontabs (Alpine Linux crontab location)
+        if not cron_jobs:
+            try:
+                root_crontab = '/etc/crontabs/root'
+                if os.path.exists(root_crontab):
+                    with open(root_crontab, 'r') as f:
+                        lines = f.read().strip().split('\n')
+                        active_jobs = [line.strip() for line in lines if line.strip() and not line.strip().startswith('#')]
+                        if active_jobs:
+                            cron_jobs = active_jobs
+                            cron_status = f"Found {len(active_jobs)} job(s) in /etc/crontabs/root"
+            except Exception as e4:
+                pass
+        
+        # Method 5: Check for crond daemon running
+        if not cron_jobs:
+            try:
+                result = subprocess.run(['ps', 'aux'], capture_output=True, text=True, timeout=5)
+                crond_lines = [line for line in result.stdout.split('\n') if 'crond' in line and 'grep' not in line]
+                if crond_lines:
+                    cron_status = "Cron daemon running"
             except:
                 pass
         
-        metrics['system']['cron_jobs'] = cron_count if cron_count > 0 else 'Unknown'
+        # Set metrics based on what was found
+        if cron_jobs:
+            metrics['system']['cron_jobs'] = len(cron_jobs)
+            metrics['system']['cron_status'] = cron_status
+        else:
+            metrics['system']['cron_jobs'] = "Unknown"
+            metrics['system']['cron_status'] = "Unable to detect"
             
     except Exception as e:
         metrics['system']['error'] = str(e)
+        metrics['system']['cron_jobs'] = "Error"
     
     return metrics
 

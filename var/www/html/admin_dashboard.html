@@ -739,7 +739,7 @@
                         </div>
                     </div>
                     <div class="stat-change">
-                        <span style="color: var(--text-secondary);">Active cron tasks</span>
+                        <span style="color: var(--text-secondary);">{{CRON_STATUS}}</span>
                     </div>
                 </div>
             </div>
@@ -865,6 +865,10 @@
                     <div class="metric-row">
                         <span class="metric-label">Cron Jobs</span>
                         <span class="metric-value">{{CRON_JOBS}}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span class="metric-label">Scheduler Status</span>
+                        <span class="metric-value" style="font-size: 0.9em;">{{CRON_STATUS}}</span>
                     </div>
                 </div>
             </div>
@@ -1081,6 +1085,10 @@
                         <div class="metric-row">
                             <span class="metric-label">Active Cron Jobs</span>
                             <span class="metric-value">{{CRON_JOBS}}</span>
+                        </div>
+                        <div class="metric-row">
+                            <span class="metric-label">Scheduler Status</span>
+                            <span class="metric-value" style="font-size: 0.9em;">{{CRON_STATUS}}</span>
                         </div>
                         <div class="metric-row">
                             <span class="metric-label">Python Version</span>
