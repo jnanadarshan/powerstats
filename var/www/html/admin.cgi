@@ -287,33 +287,37 @@ def handle_action(action: str, config, form) -> dict:
 
 
 def render_login(message: str = '') -> str:
-        """Return a modern login HTML page"""
-        message_html = f"<div style='color:#e11d48;padding:10px;border-radius:8px;margin-bottom:12px;background:#fff5f7;border:1px solid #fecaca;'>" + message + "</div>" if message else ''
-        return f'''Content-Type: text/html
-
-<!DOCTYPE html>
+    """Return a modern login HTML page"""
+    message_html = (
+        '<div style="color:#e11d48;padding:10px;border-radius:8px;margin-bottom:12px;background:#fff5f7;border:1px solid #fecaca;">'
+        + message + '</div>'
+        if message
+        else ''
+    )
+    header = "Content-Type: text/html\n\n"
+    body = """<!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width,initial-scale=1">
-        <title>Admin Login - Power Monitor</title>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-        <style>
-                body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
-                .login{background:#fff;padding:40px;border-radius:14px;box-shadow:0 10px 40px rgba(2,6,23,0.2);width:100%;max-width:420px}
-                .login h1{font-size:1.8rem;margin-bottom:8px;color:#0f172a}
-                .login p{color:#64748b;margin-bottom:20px}
-                input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px}
-                button{display:inline-block;padding:12px 18px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:600;cursor:pointer}
-                .logo{font-size:2.5rem;margin-bottom:8px}
-        </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Admin Login - Power Monitor</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display:flex; align-items:center; justify-content:center; margin:0; }
+        .login { background:#fff; padding:40px; border-radius:14px; box-shadow:0 10px 40px rgba(2,6,23,0.2); width:100%; max-width:420px }
+        .login h1{ font-size: 1.8rem; margin-bottom: 8px; color: #0f172a }
+        .login p{ color: #64748b; margin-bottom: 20px }
+        input{ width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 12px }
+        button{ display: inline-block; padding: 12px 18px; border-radius:8px; border:none; background:#334155; color:#fff; font-weight:600; cursor:pointer }
+        .logo{ font-size: 2.5rem; margin-bottom: 8px }
+    </style>
 </head>
 <body>
     <form class="login" method="post" action="/admin.cgi">
         <div class="logo">⚡</div>
         <h1>Admin Login</h1>
         <p>Authenticate to access the power monitor admin panel.</p>
-        {message_html}
+        <!--MESSAGE_HTML-->
         <label>Username</label>
         <input type="text" name="username" required autofocus />
         <label>Password</label>
@@ -324,7 +328,8 @@ def render_login(message: str = '') -> str:
     </form>
 </body>
 </html>
-'''
+"""
+    return header + body.replace('<!--MESSAGE_HTML-->', message_html)
 
 
 # Due to length constraints, the HTML rendering will be loaded from templates directory
