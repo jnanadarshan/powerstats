@@ -68,32 +68,108 @@ restore_config() {
 
 prompt_github_info() {
   echo ""
-  echo "==> GitHub Repository Information"
-  printf "Enter GitHub username: "
-  read GH_USER
-  if [ -z "$GH_USER" ]; then
-    echo "ERROR: Username cannot be empty"
-    exit 1
+  echo "=========================================="
+  echo "  GitHub Repository Configuration"
+  echo "=========================================="
+  
+  # Try to read from config.json first
+  CONFIG_FILE="/opt/power-monitor/config.json"
+  GH_USER=""
+  GH_REPO=""
+  GH_BRANCH=""
+  
+  if [ -f "$CONFIG_FILE" ]; then
+    # Try to extract repo info using Python (more reliable than grep)
+    if command -v python3 >/dev/null 2>&1; then
+      CONFIG_DATA=$(python3 - "$CONFIG_FILE" <<'PYTHON_EOF'
+import json
+import sys
+try:
+    with open(sys.argv[1], 'r') as f:
+        config = json.load(f)
+    repo = config.get('github', {}).get('repo', '')
+    branch = config.get('github', {}).get('branch', 'main')
+    if '/' in repo:
+        user, repo_name = repo.split('/', 1)
+        print(f"{user}|{repo_name}|{branch}")
+    else:
+        print("")
+except:
+    print("")
+PYTHON_EOF
+      )
+      
+      if [ -n "$CONFIG_DATA" ]; then
+        GH_USER=$(echo "$CONFIG_DATA" | cut -d'|' -f1)
+        GH_REPO=$(echo "$CONFIG_DATA" | cut -d'|' -f2)
+        GH_BRANCH=$(echo "$CONFIG_DATA" | cut -d'|' -f3)
+      fi
+    fi
   fi
   
-  printf "Enter repository name: "
-  read GH_REPO
-  if [ -z "$GH_REPO" ]; then
-    echo "ERROR: Repository name cannot be empty"
-    exit 1
+  # If we found config, show it to user for confirmation
+  if [ -n "$GH_USER" ] && [ -n "$GH_REPO" ]; then
+    echo ""
+    echo "Configuration found in config.json:"
+    echo ""
+    echo "  Username:      $GH_USER"
+    echo "  Repository:    $GH_REPO"
+    echo "  Branch:        $GH_BRANCH"
+    echo ""
+    echo "  Full repo URL: https://github.com/$GH_USER/$GH_REPO"
+    echo ""
+    
+    if confirm "Use these settings?"; then
+      echo "  ✓ Using config.json values"
+      echo ""
+    else
+      echo "  → Switching to manual input mode"
+      GH_USER=""
+      GH_REPO=""
+      GH_BRANCH=""
+      echo ""
+    fi
   fi
   
-  printf "Enter branch name (default: main): "
-  read GH_BRANCH
-  if [ -z "$GH_BRANCH" ]; then
-    GH_BRANCH="main"
+  # If not using config or config didn't have values, ask user for manual input
+  if [ -z "$GH_USER" ] || [ -z "$GH_REPO" ]; then
+    echo "Please enter GitHub Repository Information:"
+    echo ""
+    
+    printf "  Enter GitHub username: "
+    read GH_USER
+    if [ -z "$GH_USER" ]; then
+      echo "  ERROR: Username cannot be empty"
+      exit 1
+    fi
+    
+    printf "  Enter repository name: "
+    read GH_REPO
+    if [ -z "$GH_REPO" ]; then
+      echo "  ERROR: Repository name cannot be empty"
+      exit 1
+    fi
+    
+    printf "  Enter branch name (default: main): "
+    read GH_BRANCH_INPUT
+    if [ -n "$GH_BRANCH_INPUT" ]; then
+      GH_BRANCH="$GH_BRANCH_INPUT"
+    else
+      GH_BRANCH="main"
+    fi
+    
+    echo ""
   fi
   
   # Build GitHub raw content base URL
   GH_BASE_URL="https://raw.githubusercontent.com/${GH_USER}/${GH_REPO}/${GH_BRANCH}"
   
-  echo ""
-  echo "GitHub URL base: $GH_BASE_URL"
+  echo "=========================================="
+  echo "  Final Configuration:"
+  echo "=========================================="
+  echo "  GitHub URL: https://github.com/$GH_USER/$GH_REPO"
+  echo "  Branch:     $GH_BRANCH"
+  echo "=========================================="
   echo ""
 }
 
