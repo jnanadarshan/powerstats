@@ -134,6 +134,14 @@ upgrade_ui_files() {
     var/www/html/HELP_CONSOLIDATED.md
   "
   
+  # Backup current UI files before replacing them
+  UI_BACKUP_DIR="/root/powerstats-ui-backup-$(TIMESTAMP)"
+  if [ -d "/var/www/html" ]; then
+    echo "    Backing up existing UI files to $UI_BACKUP_DIR"
+    mkdir -p "$UI_BACKUP_DIR"
+    cp -a /var/www/html/* "$UI_BACKUP_DIR/" || true
+  fi
+
   FAILED=0
   for file in $UI_FILES; do
     # Extract filename for destination (keep relative path structure)
@@ -151,6 +159,32 @@ upgrade_ui_files() {
   echo "==> Setting permissions on web files"
   chmod 755 /var/www/html/*.cgi 2>/dev/null || true
   chmod 644 /var/www/html/*.html /var/www/html/*.css /var/www/html/*.md 2>/dev/null || true
+}
+
+upgrade_templates() {
+  echo ""
+  echo "==> Upgrading template files in /opt/power-monitor/templates"
+
+  TEMPLATE_FILES="
+    opt/power-monitor/templates/dashboard.html
+    opt/power-monitor/templates/admin_dashboard.html
+  "
+
+  FAILED=0
+  for file in $TEMPLATE_FILES; do
+    DST="/${file}"
+    download_file "$file" "$DST" || FAILED=$((FAILED + 1))
+  done
+
+  if [ $FAILED -gt 0 ]; then
+    echo "WARNING: $FAILED template file(s) failed to download"
+  else
+    echo "==> Template files upgraded successfully"
+  fi
+
+  # Set permissions
+  echo "==> Setting permissions on template files"
+  chmod 644 /opt/power-monitor/templates/* 2>/dev/null || true
 }
 
 upgrade_backend_files() {
@@ -193,6 +227,7 @@ upgrade_app_full() {
   
   backup_config
   upgrade_ui_files
+  upgrade_templates
   upgrade_backend_files
   restore_config
   
@@ -231,6 +266,7 @@ show_upgrade_menu() {
       if confirm "Proceed with UI-only upgrade?"; then
         backup_config
         upgrade_ui_files
+        upgrade_templates
         restore_config
       else
         echo "Upgrade cancelled"
@@ -240,6 +276,7 @@ show_upgrade_menu() {
       if confirm "Proceed with Backend-only upgrade?"; then
         backup_config
         upgrade_backend_files
+        upgrade_templates
         restore_config
       else
         echo "Upgrade cancelled"
@@ -277,6 +314,21 @@ restart_services() {
   fi
 }
 
+prompt_install_deps() {
+  # $1 -- path to requirements.txt (default: /opt/power-monitor/requirements.txt)
+  REQ_FILE=${1:-/opt/power-monitor/requirements.txt}
+  if [ -f "$REQ_FILE" ]; then
+    if confirm "Install/update Python dependencies from $REQ_FILE now?"; then
+      echo "==> Installing Python dependencies (pip3)"
+      if command -v pip3 >/dev/null 2>&1; then
+        pip3 install -r "$REQ_FILE" || echo "Warning: pip3 install failed"
+      else
+        echo "pip3 not available - please install Python/pip or run 'sudo sh install.sh' to install dependencies"
+      fi
+    fi
+  fi
+}
+
 main() {
   ensure_root
   
@@ -305,6 +357,9 @@ main() {
   
   # Optionally restart services
   restart_services
+
+  # Optionally install python deps needed by the new release
+  prompt_install_deps /opt/power-monitor/requirements.txt
   
   echo ""
   echo "=========================================="

@@ -89,7 +89,7 @@ main() {
   cd "$TMPDIR"
   # fetch only UI paths: var/www/html and HELP_CONSOLIDATED.md (if present)
   git sparse-checkout init --cone >/dev/null 2>&1 || true
-  git sparse-checkout set var/www/html HELP_CONSOLIDATED.md >/dev/null 2>&1 || true
+  git sparse-checkout set var/www/html HELP_CONSOLIDATED.md opt/power-monitor/templates >/dev/null 2>&1 || true
 
   echo "Sparse checkout complete. Available paths:"
   ls -la var/www/html 2>/dev/null || true
@@ -101,6 +101,7 @@ main() {
 
   LOCAL_UI_DIR="$REPO_ROOT/var/www/html"
   LOCAL_HELP="$REPO_ROOT/HELP_CONSOLIDATED.md"
+  LOCAL_TEMPLATES_DIR="$REPO_ROOT/opt/power-monitor/templates"
 
   printf "About to remove current UI files inside the repository at %s\n" "$LOCAL_UI_DIR"
   if [ -d "$LOCAL_UI_DIR" ]; then
@@ -128,6 +129,16 @@ main() {
     echo "Copied var/www/html -> $LOCAL_UI_DIR"
   else
     echo "No var/www/html in upstream repo. Nothing to copy.";
+  fi
+    # Ensure cgi executables and permissions
+    if [ -d "$LOCAL_UI_DIR" ]; then
+      chmod 755 "$LOCAL_UI_DIR"/*.cgi 2>/dev/null || true
+      chmod 644 "$LOCAL_UI_DIR"/*.html "$LOCAL_UI_DIR"/*.css 2>/dev/null || true
+    fi
+  if [ -d "$TMPDIR/opt/power-monitor/templates" ]; then
+    mkdir -p "$LOCAL_TEMPLATES_DIR"
+    rsync -a --delete "$TMPDIR/opt/power-monitor/templates/" "$LOCAL_TEMPLATES_DIR/"
+    echo "Copied opt/power-monitor/templates -> $LOCAL_TEMPLATES_DIR"
   fi
   if [ -f "$TMPDIR/HELP_CONSOLIDATED.md" ]; then
     cp -a "$TMPDIR/HELP_CONSOLIDATED.md" "$LOCAL_HELP"
@@ -157,6 +168,14 @@ main() {
   rsync -a --delete "$LOCAL_UI_DIR/" "$TARGET_WEB_ROOT/"
   # copy HELP file if present
   [ -f "$LOCAL_HELP" ] && cp -a "$LOCAL_HELP" "$TARGET_WEB_ROOT/HELP_CONSOLIDATED.md"
+  # copy templates to /opt/power-monitor/templates on device
+  if [ -d "$LOCAL_TEMPLATES_DIR" ]; then
+    echo "Copying templates to /opt/power-monitor/templates"
+    mkdir -p /opt/power-monitor/templates
+    rsync -a --delete "$LOCAL_TEMPLATES_DIR/" /opt/power-monitor/templates/
+     chmod 644 /opt/power-monitor/templates/* 2>/dev/null || true
+     echo "Templates copied to /opt/power-monitor/templates"
+  fi
 
   echo "UI files deployed to $TARGET_WEB_ROOT"
 

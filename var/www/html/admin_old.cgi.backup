@@ -1,0 +1,479 @@
+#!/usr/bin/env python3
+"""
+Admin CGI Interface for Power Monitoring System
+Provides web-based administration for maintenance mode and manual sync
+"""
+
+import cgi
+import cgitb
+import json
+import os
+import sys
+import subprocess
+from datetime import datetime
+from pathlib import Path
+import hashlib
+import hmac
+
+# Enable CGI error reporting
+cgitb.enable()
+
+# Add parent directory to path for imports
+sys.path.insert(0, '/opt/power-monitor')
+
+from config_manager import get_config
+from collector import MaintenanceMode
+
+
+def check_auth(form_data, config) -> bool:
+    """Verify admin credentials"""
+    username = form_data.getvalue('username', '')
+    password = form_data.getvalue('password', '')
+    
+    # Get stored credentials
+    stored_username = config.get('admin.username', 'admin')
+    stored_password_hash = config.get('admin.password_hash', '')
+    
+    # Simple username check
+    if username != stored_username:
+        return False
+    
+    # For demo purposes, support plain password comparison
+    # In production, use proper password hashing
+    if stored_password_hash.startswith('pbkdf2:'):
+        # TODO: Implement proper PBKDF2 verification
+        return False
+    else:
+        # Plain text comparison (for initial setup only)
+        return password == stored_password_hash
+    
+    return False
+
+
+def get_system_status(config) -> dict:
+    """Get current system status"""
+    maintenance = MaintenanceMode(config.state_file)
+    
+    status = {
+        'maintenance_mode': maintenance.is_enabled(),
+        'current_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    # Check if data file exists and get last update
+    data_file = config.data_file
+    if os.path.exists(data_file):
+        try:
+            with open(data_file, 'r') as f:
+                data = json.load(f)
+                status['last_update'] = data.get('last_update', 'Unknown')
+                status['data_points'] = len(data.get('data_points', []))
+        except:
+            status['last_update'] = 'Error reading data'
+            status['data_points'] = 0
+    else:
+        status['last_update'] = 'No data yet'
+        status['data_points'] = 0
+    
+    return status
+
+
+def handle_action(action: str, config) -> dict:
+    """Handle admin actions"""
+    result = {'success': False, 'message': ''}
+    
+    try:
+        if action == 'toggle_maintenance':
+            maintenance = MaintenanceMode(config.state_file)
+            try:
+                new_state = maintenance.toggle()
+                result['success'] = True
+                result['message'] = f'Maintenance mode {"enabled" if new_state else "disabled"}'
+            except PermissionError:
+                result['success'] = False
+                result['message'] = (
+                    'Permission denied when toggling maintenance mode.\n'
+                    'Please re-run the installer or update permissions for /etc/monitor.conf ' \
+                    '(e.g., sudo chown root:lighttpd /etc/monitor.conf && sudo chmod 664 /etc/monitor.conf)')
+            
+        elif action == 'manual_sync':
+            # Run collector and publisher
+            maintenance = MaintenanceMode(config.state_file)
+            if maintenance.is_enabled():
+                result['message'] = 'Cannot sync while in maintenance mode'
+            else:
+                # Run collector
+                collector_result = subprocess.run(
+                    ['/usr/bin/python3', '/opt/power-monitor/collector.py'],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+                
+                if collector_result.returncode == 0:
+                    # Run publisher
+                    publisher_result = subprocess.run(
+                        ['/usr/bin/python3', '/opt/power-monitor/publisher.py'],
+                        capture_output=True,
+                        text=True,
+                        timeout=60
+                    )
+                    
+                    if publisher_result.returncode == 0:
+                        result['success'] = True
+                        result['message'] = 'Manual sync completed successfully'
+                    else:
+                        result['message'] = f'Publisher failed: {publisher_result.stderr}'
+                else:
+                    result['message'] = f'Collector failed: {collector_result.stderr}'
+        
+        else:
+            result['message'] = 'Unknown action'
+            
+    except Exception as e:
+        result['message'] = f'Error: {str(e)}'
+    
+    return result
+
+
+def render_html(status: dict, message: str = '', authenticated: bool = False):
+    """Render the admin interface HTML"""
+    
+    if not authenticated:
+        # Login form
+        html = """Content-Type: text/html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - Power Monitor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+        }
+        .login-container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .error {
+            color: #e74c3c;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>🔐 Admin Login</h1>
+        <form method="post">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+</body>
+</html>
+"""
+    else:
+        # Admin dashboard
+        maintenance_status = "Enabled" if status['maintenance_mode'] else "Disabled"
+        maintenance_class = "status-maintenance" if status['maintenance_mode'] else "status-normal"
+        toggle_text = "Disable Maintenance Mode" if status['maintenance_mode'] else "Enable Maintenance Mode"
+        
+        message_html = f'<div class="message">{message}</div>' if message else ''
+        
+        html = f"""Content-Type: text/html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - Power Monitor</title>
+    <style>
+        body {{
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            margin: 0;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        .header {{
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }}
+        .header h1 {{
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }}
+        .card {{
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }}
+        .status-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }}
+        .status-item {{
+            text-align: center;
+        }}
+        .status-label {{
+            font-size: 0.85em;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }}
+        .status-value {{
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }}
+        .status-normal {{
+            color: #27ae60;
+        }}
+        .status-maintenance {{
+            color: #e74c3c;
+        }}
+        .actions {{
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }}
+        button {{
+            flex: 1;
+            min-width: 200px;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }}
+        .btn-primary {{
+            background: #667eea;
+            color: white;
+        }}
+        .btn-primary:hover {{
+            background: #5568d3;
+        }}
+        .btn-secondary {{
+            background: #95a5a6;
+            color: white;
+        }}
+        .btn-secondary:hover {{
+            background: #7f8c8d;
+        }}
+        .btn-warning {{
+            background: #f39c12;
+            color: white;
+        }}
+        .btn-warning:hover {{
+            background: #e67e22;
+        }}
+        .message {{
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }}
+        .links {{
+            text-align: center;
+            margin-top: 20px;
+        }}
+        .links a {{
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            font-size: 14px;
+        }}
+        .links a:hover {{
+            text-decoration: underline;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Admin Panel</h1>
+            <p>Power Monitoring System Control</p>
+        </div>
+        
+        {message_html}
+        
+        <div class="card">
+            <h2>System Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Maintenance Mode</div>
+                    <div class="status-value {maintenance_class}">{maintenance_status}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Last Data Update</div>
+                    <div class="status-value">{status['last_update']}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Data Points</div>
+                    <div class="status-value">{status['data_points']}</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">Current Time</div>
+                    <div class="status-value">{status['current_time']}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Actions</h2>
+            <div class="actions">
+                <form method="post" style="flex: 1; min-width: 200px;">
+                    <input type="hidden" name="action" value="toggle_maintenance">
+                    <input type="hidden" name="authenticated" value="1">
+                    <button type="submit" class="btn-warning">{toggle_text}</button>
+                </form>
+                
+                <form method="post" style="flex: 1; min-width: 200px;">
+                    <input type="hidden" name="action" value="manual_sync">
+                    <input type="hidden" name="authenticated" value="1">
+                    <button type="submit" class="btn-primary">Manual Sync Now</button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="links">
+            <a href="index.html" target="_blank">View Dashboard</a>
+            <a href="?logout=1">Logout</a>
+        </div>
+    </div>
+</body>
+</html>
+"""
+    
+    return html
+
+
+def main():
+    """Main CGI handler"""
+    try:
+        # Parse form data
+        form = cgi.FieldStorage()
+        
+        # Load configuration
+        config = get_config()
+        
+        # Check for logout
+        if 'logout' in form or os.environ.get('QUERY_STRING') == 'logout=1':
+            print(render_html({}, authenticated=False))
+            return
+        
+        # Check authentication
+        authenticated = form.getvalue('authenticated') == '1'
+        
+        if not authenticated and form.getvalue('username'):
+            # Login attempt
+            if check_auth(form, config):
+                authenticated = True
+            else:
+                print(render_html({}, "Invalid credentials", False))
+                return
+        
+        if not authenticated:
+            # Show login form
+            print(render_html({}, authenticated=False))
+            return
+        
+        # Get current status
+        status = get_system_status(config)
+        
+        # Handle action if present
+        message = ''
+        action = form.getvalue('action')
+        if action:
+            try:
+                result = handle_action(action, config)
+            except PermissionError as pe:
+                # Make error message helpful for admins
+                result = { 'success': False, 'message': (
+                    'Permission denied while toggling maintenance mode.\n'
+                    'Please ensure /etc/monitor.conf is writable by the webserver user or run the installer ' \
+                    'to set correct permissions (sudo sh install.sh).' ) }
+            except Exception as e:
+                result = { 'success': False, 'message': f'Error: {str(e)}' }
+            message = result['message']
+            # Refresh status after action
+            status = get_system_status(config)
+        
+        # Render admin interface
+        print(render_html(status, message, authenticated=True))
+        
+    except Exception as e:
+        print("Content-Type: text/html\n")
+        print(f"<h1>Error</h1><pre>{str(e)}</pre>")
+
+
+if __name__ == '__main__':
+    main()

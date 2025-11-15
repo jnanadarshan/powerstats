@@ -227,6 +227,9 @@ log_success "Directories created"
 log_info "Copying application files..."
 cp "$SCRIPT_DIR"/opt/power-monitor/*.py /opt/power-monitor/
 cp "$SCRIPT_DIR"/opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
+if [ -f "$SCRIPT_DIR"/opt/power-monitor/templates/admin_dashboard.html ]; then
+    cp "$SCRIPT_DIR"/opt/power-monitor/templates/admin_dashboard.html /opt/power-monitor/templates/
+fi
 cp "$SCRIPT_DIR"/var/www/html/index.html /var/www/html/
 cp "$SCRIPT_DIR"/var/www/html/admin.cgi /var/www/html/
 
@@ -259,6 +262,9 @@ chmod +x /var/www/html/admin.cgi
 chmod 755 /opt/power-monitor
 chmod 755 /var/www/html
 chmod 644 /opt/power-monitor/templates/dashboard.html
+if [ -f "/opt/power-monitor/templates/admin_dashboard.html" ]; then
+    chmod 644 /opt/power-monitor/templates/admin_dashboard.html
+fi
 ## Secure config but allow webserver read access when appropriate
 if id -u lighttpd > /dev/null 2>&1; then
     # Give root ownership but allow lighttpd group read access

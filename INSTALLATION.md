@@ -217,6 +217,24 @@ If you need to change settings after installation:
    python3 /opt/power-monitor/publisher.py
    ```
 
+## Upgrading
+
+If you want to update the application from your GitHub repo, use `upgrade.sh` located at the top level of the repository. The script supports:
+
+- UI files (e.g., `/var/www/html/admin.cgi`, `theme.css`)
+- Backend Python files in `/opt/power-monitor/`
+- Template files under `/opt/power-monitor/templates/` (if your repository includes them)
+
+The script preserves `config.json` and all local JSON data files. For UI-only upgrades that fetch `var/www/html` and optional templates, `deployment/ui-upgrade.sh` can be used to perform a sparse checkout and deploy only UI-related files.
+
+The upgrade script will automatically back up existing `var/www/html` files to `/root/powerstats-ui-backup-<timestamp>` before overwriting them so you can restore if something goes wrong.
+
+Run the script as root and follow the prompts:
+
+```bash
+sudo sh upgrade.sh
+```
+
 ## Uninstallation
 
 To completely remove the system:
