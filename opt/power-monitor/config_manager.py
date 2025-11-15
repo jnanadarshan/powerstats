@@ -212,6 +212,21 @@ class ConfigManager:
     def state_file(self) -> str:
         """Path to state file"""
         return self.config['paths']['state_file']
+
+    @property
+    def mdns_enabled(self) -> bool:
+        """Whether to enable internal mDNS advertiser"""
+        return bool(self.config.get('mdns', {}).get('enabled', False))
+
+    @property
+    def mdns_hostname(self) -> str:
+        """mDNS hostname (without .local)"""
+        return self.config.get('mdns', {}).get('hostname', 'power')
+
+    @property
+    def mdns_port(self) -> int:
+        """HTTP port to advertise via mDNS"""
+        return int(self.config.get('mdns', {}).get('http_port', 80))
     
     @property
     def web_root(self) -> str:

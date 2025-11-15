@@ -1,0 +1,16 @@
+#!/sbin/openrc-run
+# OpenRC init script to run the mdns advertiser on OpenRC (Alpine Linux)
+command=/usr/bin/python3
+command_args="/opt/power-monitor/mdns.py --config /opt/power-monitor/config.json"
+name=power-monitor-mdns
+pidfile=/var/run/power-monitor-mdns.pid
+command_background=yes
+
+depend() {
+    need net
+    before dnsmasq
+}
+
+start_pre() {
+    checkpath --directory --mode 0755 /var/log
+}

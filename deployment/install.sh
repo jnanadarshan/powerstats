@@ -43,6 +43,34 @@ cp ../opt/power-monitor/publisher.py /opt/power-monitor/
 cp ../opt/power-monitor/config_manager.py /opt/power-monitor/
 cp ../opt/power-monitor/health.py /opt/power-monitor/
 cp ../opt/power-monitor/config.example.json /opt/power-monitor/
+# Copy mdns advertiser script if present and mdns enabled
+if [ -f ../opt/power-monitor/mdns.py ]; then
+    # if mdns is enabled in a config.json in the repo, install the mdns script
+    if [ -f ../opt/power-monitor/config.example.json ]; then
+        MDNS_CFG=$(python3 - <<'PY'
+import json,sys
+cfg=json.load(open('../opt/power-monitor/config.example.json'))
+md=cfg.get('mdns', {})
+print('1' if md.get('enabled', False) else '0')
+PY
+        )
+        if [ "${MDNS_CFG}" = "1" ]; then
+            cp ../opt/power-monitor/mdns.py /opt/power-monitor/
+            chmod +x /opt/power-monitor/mdns.py || true
+            echo "Copied mdns advertiser to /opt/power-monitor/"
+            # Install zeroconf using pip3
+            pip3 install --no-cache-dir zeroconf || true
+            # Install OpenRC mdns init if present
+            if [ -f ../deployment/power-monitor-mdns.openrc ] && [ -f /sbin/openrc ]; then
+                cp ../deployment/power-monitor-mdns.openrc /etc/init.d/power-monitor-mdns || true
+                chmod +x /etc/init.d/power-monitor-mdns || true
+                rc-update add power-monitor-mdns default || true
+                rc-service power-monitor-mdns start || true
+                echo "Enabled OpenRC mdns advertiser"
+            fi
+        fi
+    fi
+fi
 
 # Copy templates
 cp ../opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
@@ -106,6 +134,12 @@ chown lighttpd:lighttpd /var/log/lighttpd
 # Initialize state file
 echo "Initializing state file..."
 echo "maintenance_mode=false" > /etc/monitor.conf
+if id -u lighttpd >/dev/null 2>&1; then
+    chown root:lighttpd /etc/monitor.conf || true
+    chmod 664 /etc/monitor.conf || true
+else
+    chmod 644 /etc/monitor.conf || true
+fi
 
 # Create config file if it doesn't exist
 if [ ! -f /opt/power-monitor/config.json ]; then

@@ -47,7 +47,9 @@ def main():
     # Data configuration
     print("--- Data Settings ---")
     retention = get_input("Data retention (days)", "7")
-    interval = get_input("Collection interval (minutes)", "10")
+    local_interval = get_input("Local collection interval (minutes)", "10")
+    publish_interval = get_input("Publish (GitHub) interval (minutes)", "60")
+    health_check_interval = get_input("Health check interval (seconds)", "10")
     print()
     
     # Admin configuration
@@ -83,9 +85,11 @@ def main():
             "branch": gh_branch
         },
         "data": {
-            "retention_days": int(retention),
-            "collection_interval_minutes": int(interval)
-        },
+                "retention_days": int(retention),
+                "local_collection_interval_minutes": int(local_interval),
+                "publish_interval_minutes": int(publish_interval),
+                "health_check_interval_seconds": int(health_check_interval)
+            },
         "admin": {
             "username": admin_user,
             "password_hash": admin_pass
@@ -96,6 +100,20 @@ def main():
             "data_file": data_file
         }
     }
+
+    # mDNS / Zeroconf configuration (optional)
+    print("--- mDNS / local hostname (optional) ---")
+    enable_mdns = get_input("Enable mDNS (power.local)? (y/n)", "n").lower()
+    if enable_mdns == 'y' or enable_mdns == 'yes':
+        mdns_host = get_input("mDNS hostname (no .local)", "power")
+        mdns_port = get_input("HTTP port to advertise", "80")
+        config['mdns'] = {
+            "enabled": True,
+            "hostname": mdns_host,
+            "http_port": int(mdns_port)
+        }
+    else:
+        config['mdns'] = {"enabled": False}
     
     # Determine output path
     script_dir = Path(__file__).parent

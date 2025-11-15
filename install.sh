@@ -387,6 +387,121 @@ echo "maintenance_mode=false" > /etc/monitor.conf
 
 log_success "Application installed successfully"
 
+# Ensure the webserver can toggle maintenance file
+if id -u lighttpd >/dev/null 2>&1; then
+    chown root:lighttpd /etc/monitor.conf || true
+    chmod 664 /etc/monitor.conf || true
+    log_info "Updated /etc/monitor.conf ownership to root:lighttpd and mode 664"
+else
+    chmod 644 /etc/monitor.conf || true
+    log_info "Set /etc/monitor.conf mode to 644"
+fi
+
+# =============================================================================
+# STEP 3b: Configure lightweight mDNS advertiser (optional - config-driven)
+# =============================================================================
+# Read current config default for mDNS
+CONFIG_MDNS_ENABLED=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+md=cfg.get('mdns', {})
+print('1' if md.get('enabled', False) else '0')
+PY
+)
+
+log_info "Config mDNS enabled: ${CONFIG_MDNS_ENABLED}"
+
+# Prompt user to enable mDNS interactively (default: off)
+MDNS_ENABLED=${CONFIG_MDNS_ENABLED}
+if [ -t 0 ]; then
+    echo ""
+    read -p "Enable mDNS for local hostname resolution (e.g. power.local)? [y/N] " answer
+    case "${answer}" in
+        [Yy]|[Yy][Ee][Ss])
+            MDNS_ENABLED=1
+            ;;
+        [Nn]|[Nn][Oo]|"")
+            MDNS_ENABLED=0
+            ;;
+        *)
+            MDNS_ENABLED=${CONFIG_MDNS_ENABLED}
+            ;;
+    esac
+fi
+
+if [ "${MDNS_ENABLED}" = "1" ]; then
+    log_info "MDNS support enabled; installing mdns advertiser"
+    # Ensure pip3 exists
+    if ! command -v pip3 >/dev/null 2>&1; then
+        apk add --no-cache py3-pip || true
+    fi
+    # Install Python package for zeroconf
+    pip3 install --no-cache-dir zeroconf || log_warn "Failed to install python-zeroconf; mdns advertiser may not run"
+
+    # Copy mdns script and service files
+    if [ -f "$SCRIPT_DIR/opt/power-monitor/mdns.py" ]; then
+        cp "$SCRIPT_DIR/opt/power-monitor/mdns.py" /opt/power-monitor/
+        chmod +x /opt/power-monitor/mdns.py
+        log_info "Copied mdns advertiser script to /opt/power-monitor/"
+    fi
+
+    # Install systemd service if present
+    if command -v systemctl >/dev/null 2>&1; then
+        if [ -f "$SCRIPT_DIR/deployment/power-monitor-mdns.service" ]; then
+            cp "$SCRIPT_DIR/deployment/power-monitor-mdns.service" /etc/systemd/system/
+            systemctl daemon-reload || true
+            systemctl enable --now power-monitor-mdns || true
+            log_success "Enabled systemd mdns service"
+        fi
+    fi
+
+    # Install OpenRC init script for Alpine if available
+    if [ -f "$SCRIPT_DIR/deployment/power-monitor-mdns.openrc" ] && [ -f /sbin/openrc ]; then
+        cp "$SCRIPT_DIR/deployment/power-monitor-mdns.openrc" /etc/init.d/power-monitor-mdns || true
+        chmod +x /etc/init.d/power-monitor-mdns || true
+        rc-update add power-monitor-mdns default || true
+        rc-service power-monitor-mdns start || true
+        log_success "Enabled OpenRC mdns init script"
+    fi
+    # Update /opt/power-monitor/config.json with mdns enabled and hostname
+    # Prompt for hostname if interactive
+    MDNS_HOST="$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+print(cfg.get('mdns', {}).get('hostname', 'power'))
+PY
+  )"
+    if [ -t 0 ]; then
+        read -p "Enter mDNS hostname to advertise (no .local, default: ${MDNS_HOST}): " hd
+        if [ -n "${hd}" ]; then
+            MDNS_HOST=${hd}
+        fi
+    fi
+    # Persist mdns settings into the device config
+    python3 - <<PY
+import json
+f='/opt/power-monitor/config.json'
+cfg=json.load(open(f))
+cfg.setdefault('mdns', {})
+cfg['mdns']['enabled']=True
+cfg['mdns']['hostname']='%s'
+cfg['mdns']['http_port']=int(cfg.get('mdns',{}).get('http_port',80))
+json.dump(cfg, open(f,'w'), indent=2, sort_keys=True)
+PY
+
+    # Set the system hostname to the selected mDNS hostname
+    if command -v hostnamectl >/dev/null 2>&1; then
+        hostnamectl set-hostname "${MDNS_HOST}" || true
+    else
+        echo "${MDNS_HOST}" > /etc/hostname || true
+        hostname "${MDNS_HOST}" || true
+    fi
+    log_info "Set system hostname to ${MDNS_HOST} and updated config.json"
+else
+    log_info "mDNS disabled in config; skipping setup"
+fi
+
+
 # =============================================================================
 # STEP 4: Validate GitHub API
 # =============================================================================
@@ -697,6 +812,15 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 echo "  ${GREEN}Dashboard:      http://$DEVICE_IP/${NC}"
 echo "  ${GREEN}Admin Panel:    http://$DEVICE_IP/admin.cgi${NC}"
+if [ "${MDNS_ENABLED}" = "1" ]; then
+    MDNS_HOST=$(python3 - <<'PY'
+import json
+cfg=json.load(open('/opt/power-monitor/config.json'))
+print(cfg.get('mdns', {}).get('hostname','power'))
+PY
+)
+    echo "  ${GREEN}mDNS:           http://${MDNS_HOST}.local (if supported by your network)${NC}"
+fi
 echo ""
 echo "  Admin credentials configured in config.json"
 echo ""

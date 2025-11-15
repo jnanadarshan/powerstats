@@ -62,6 +62,15 @@ The script will:
 6. ✓ Validate Home Assistant API access
 7. ✓ Start web server
 8. ✓ Run initial data collection
+### mDNS / Local hostnames
+
+During installation, you'll be prompted whether to enable local mDNS (Bonjour) hostname resolution (e.g., `power.local`). If enabled, the installer will:
+- Persist mDNS settings to `/opt/power-monitor/config.json` (`mdns.enabled`, `mdns.hostname`, `mdns.http_port`)
+- Install a lightweight Python Zeroconf advertiser and enable a system service so `power.local` is discoverable
+- Optionally set the system hostname to the mDNS hostname
+
+This is optional and defaults to disabled.
+
 
 ### Step 4: Access Dashboard
 
