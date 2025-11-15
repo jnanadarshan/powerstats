@@ -322,6 +322,43 @@ def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
     replacements['LOG_CONTENT'] = log_content_full
     replacements['LOG_CONTENT_SHORT'] = log_content_short
     
+    # Load config data for setup wizard
+    try:
+        config_data = get_config_for_display()
+        replacements['CONFIG_HA_URL'] = config_data.get('homeassistant', {}).get('url', '')
+        replacements['CONFIG_HA_TOKEN'] = config_data.get('homeassistant', {}).get('token', '')
+        replacements['CONFIG_HA_VOLTAGE_ENTITY'] = config_data.get('homeassistant', {}).get('entities', {}).get('voltage', '')
+        replacements['CONFIG_HA_POWER_ENTITY'] = config_data.get('homeassistant', {}).get('entities', {}).get('power', '')
+        replacements['CONFIG_HA_SOLAR_ENTITY'] = config_data.get('homeassistant', {}).get('entities', {}).get('solar', '')
+        replacements['CONFIG_HA_PF_ENTITY'] = config_data.get('homeassistant', {}).get('entities', {}).get('power_factor', '')
+        replacements['CONFIG_HA_ENERGY_ENTITY'] = config_data.get('homeassistant', {}).get('entities', {}).get('daily_energy', '')
+        replacements['CONFIG_GH_TOKEN'] = config_data.get('github', {}).get('token', '')
+        replacements['CONFIG_GH_REPO'] = config_data.get('github', {}).get('repo', '')
+        replacements['CONFIG_GH_BRANCH'] = config_data.get('github', {}).get('branch', 'main')
+        replacements['CONFIG_GH_USER_NAME'] = config_data.get('github', {}).get('user', {}).get('name', '')
+        replacements['CONFIG_GH_USER_EMAIL'] = config_data.get('github', {}).get('user', {}).get('email', '')
+        replacements['CONFIG_COLLECTION_INTERVAL'] = str(config_data.get('data', {}).get('local_collection_interval_minutes', 10))
+        replacements['CONFIG_PUBLISH_INTERVAL'] = str(config_data.get('data', {}).get('publish_interval_minutes', 60))
+        replacements['CONFIG_RETENTION_DAYS'] = str(config_data.get('data', {}).get('retention_days', 7))
+        replacements['CONFIG_HEALTH_INTERVAL'] = str(config_data.get('data', {}).get('health_check_interval_seconds', 10))
+        replacements['CONFIG_ADMIN_USERNAME'] = config_data.get('admin', {}).get('username', 'admin')
+        replacements['CONFIG_UL_THRESHOLD'] = str(config_data.get('voltage_threshold', {}).get('UL', 250))
+        replacements['CONFIG_LL_THRESHOLD'] = str(config_data.get('voltage_threshold', {}).get('LL', 220))
+    except Exception as e:
+        # If config can't be loaded, use defaults
+        replacements.update({f'CONFIG_{k}': '' for k in [
+            'HA_URL', 'HA_TOKEN', 'HA_VOLTAGE_ENTITY', 'HA_POWER_ENTITY', 'HA_SOLAR_ENTITY', 'HA_PF_ENTITY', 'HA_ENERGY_ENTITY',
+            'GH_TOKEN', 'GH_REPO', 'GH_BRANCH', 'GH_USER_NAME', 'GH_USER_EMAIL',
+            'COLLECTION_INTERVAL', 'PUBLISH_INTERVAL', 'RETENTION_DAYS', 'HEALTH_INTERVAL',
+            'ADMIN_USERNAME', 'UL_THRESHOLD', 'LL_THRESHOLD'
+        ]})
+    
+    # Load cron jobs for display
+    try:
+        replacements['CRON_JOBS_TABLE'] = render_cron_jobs_table()
+    except Exception as e:
+        replacements['CRON_JOBS_TABLE'] = f'<div style="color: #ef4444;">Error loading cron jobs: {str(e)}</div>'
+    
     # Apply all replacements
     output = template
     for key, value in replacements.items():
@@ -502,7 +539,94 @@ def get_system_metrics(config) -> dict:
     return metrics
 
 
-def get_recent_logs(log_file: str, lines: int = 100) -> list:
+def get_cron_jobs_detailed() -> list:
+    """Get detailed cron job information with schedules"""
+    cron_jobs = []
+    
+    try:
+        # Try crontab -l first
+        result = subprocess.run(['crontab', '-l'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0 and result.stdout.strip():
+            lines = result.stdout.strip().split('\n')
+            for line in lines:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    cron_jobs.append({
+                        'schedule': line,
+                        'source': 'crontab -l',
+                        'type': 'user_cron'
+                    })
+    except Exception:
+        pass
+    
+    # Try /etc/crontabs/root (Alpine)
+    if not cron_jobs:
+        try:
+            root_crontab = '/etc/crontabs/root'
+            if os.path.exists(root_crontab):
+                with open(root_crontab, 'r') as f:
+                    lines = f.read().strip().split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if line and not line.startswith('#'):
+                            cron_jobs.append({
+                                'schedule': line,
+                                'source': '/etc/crontabs/root',
+                                'type': 'root_cron'
+                            })
+        except Exception:
+            pass
+    
+    # Check for systemd services
+    try:
+        services_to_check = ['power-monitor-scheduler', 'power-monitor-collector']
+        for service in services_to_check:
+            result = subprocess.run(
+                ['systemctl', 'is-active', service],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and 'active' in result.stdout.lower():
+                # Get timer info if it exists
+                try:
+                    timer_result = subprocess.run(
+                        ['systemctl', 'list-timers', service],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if timer_result.returncode == 0:
+                        cron_jobs.append({
+                            'schedule': f'Systemd service: {service} (active)',
+                            'source': 'systemd',
+                            'type': 'systemd_service'
+                        })
+                except:
+                    cron_jobs.append({
+                        'schedule': f'Systemd service: {service} (active)',
+                        'source': 'systemd',
+                        'type': 'systemd_service'
+                    })
+    except Exception:
+        pass
+    
+    return cron_jobs
+
+
+def format_cron_schedule(cron_line: str) -> dict:
+    """Parse and format cron schedule for display"""
+    parts = cron_line.split()
+    if len(parts) < 5:
+        return {'minute': 'N/A', 'hour': 'N/A', 'day': 'N/A', 'month': 'N/A', 'dow': 'N/A', 'command': cron_line}
+    
+    return {
+        'minute': parts[0] if parts[0] != '*' else 'Every minute',
+        'hour': parts[1] if parts[1] != '*' else 'Every hour',
+        'day': parts[2] if parts[2] != '*' else 'Every day',
+        'month': parts[3] if parts[3] != '*' else 'Every month',
+        'dow': parts[4] if parts[4] != '*' else 'Every day',
+        'command': ' '.join(parts[5:]) if len(parts) > 5 else 'N/A'
+    }
+
+
+def render_cron_jobs_table() -> str:
     """Get recent log entries"""
     if not os.path.exists(log_file):
         return []
@@ -513,6 +637,85 @@ def get_recent_logs(log_file: str, lines: int = 100) -> list:
             return all_lines[-lines:]
     except Exception as e:
         return [f"Error reading log: {str(e)}"]
+
+
+def get_config_for_display(config_path: str = '/opt/power-monitor/config.json') -> dict:
+    """Load config and prepare for display"""
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        return {}
+
+
+def save_config_from_form(form_data, config_path: str = '/opt/power-monitor/config.json') -> tuple:
+    """Save config fields from form data"""
+    try:
+        # Load current config
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+        
+        # Update fields from form
+        field_mapping = {
+            'ha_url': 'homeassistant.url',
+            'ha_token': 'homeassistant.token',
+            'ha_voltage_entity': 'homeassistant.entities.voltage',
+            'ha_power_entity': 'homeassistant.entities.power',
+            'ha_solar_entity': 'homeassistant.entities.solar',
+            'ha_pf_entity': 'homeassistant.entities.power_factor',
+            'ha_energy_entity': 'homeassistant.entities.daily_energy',
+            'gh_token': 'github.token',
+            'gh_repo': 'github.repo',
+            'gh_branch': 'github.branch',
+            'gh_user_name': 'github.user.name',
+            'gh_user_email': 'github.user.email',
+            'collection_interval': 'data.local_collection_interval_minutes',
+            'publish_interval': 'data.publish_interval_minutes',
+            'retention_days': 'data.retention_days',
+            'health_interval': 'data.health_check_interval_seconds',
+            'admin_username': 'admin.username',
+            'ul_threshold': 'voltage_threshold.UL',
+            'll_threshold': 'voltage_threshold.LL'
+        }
+        
+        for form_key, config_key in field_mapping.items():
+            value = form_data.getvalue(form_key, '').strip()
+            if value:
+                # Navigate nested keys
+                keys = config_key.split('.')
+                current = config
+                for key in keys[:-1]:
+                    if key not in current:
+                        current[key] = {}
+                    current = current[key]
+                current[keys[-1]] = value
+        
+        # Write updated config (atomically)
+        temp_path = config_path + '.tmp'
+        with open(temp_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        os.replace(temp_path, config_path)
+        
+        return True, 'Configuration saved successfully'
+    except Exception as e:
+        return False, f'Error saving config: {str(e)}'
+
+
+def restart_services() -> tuple:
+    """Restart power monitor services"""
+    try:
+        # Restart scheduler
+        result = subprocess.run(
+            ['systemctl', 'restart', 'power-monitor-scheduler'],
+            capture_output=True, text=True, timeout=10
+        )
+        
+        if result.returncode != 0:
+            return False, f'Failed to restart scheduler: {result.stderr}'
+        
+        return True, 'Services restarted successfully. Changes will take effect shortly.'
+    except Exception as e:
+        return False, f'Error restarting services: {str(e)}'
 
 
 def handle_action(action: str, config, form) -> dict:
@@ -572,6 +775,19 @@ def handle_action(action: str, config, form) -> dict:
                         pass
             result['success'] = True
             result['message'] = f'Cleared {cleared} log file(s) successfully'
+        
+        elif action == 'save_config':
+            success, message = save_config_from_form(form)
+            if success:
+                result['success'] = True
+                result['message'] = message
+            else:
+                result['message'] = message
+        
+        elif action == 'restart_services':
+            success, message = restart_services()
+            result['success'] = success
+            result['message'] = message
         
         else:
             result['message'] = 'Unknown action'

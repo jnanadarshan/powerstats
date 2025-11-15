@@ -596,6 +596,7 @@
                 'dashboard': 'Dashboard',
                 'data-files': 'Data Files Management',
                 'logs': 'System Logs',
+                'cron-jobs': 'Scheduled Jobs (Cron)',
                 'settings': 'System Settings',
                 'setup': 'Setup Wizard'
             };
@@ -629,6 +630,10 @@
             <a class="nav-item" onclick="showSection('logs')">
                 <span class="material-icons">article</span>
                 <span>System Logs</span>
+            </a>
+            <a class="nav-item" onclick="showSection('cron-jobs')">
+                <span class="material-icons">schedule</span>
+                <span>Cron Jobs</span>
             </a>
             <a class="nav-item" onclick="showSection('settings')">
                 <span class="material-icons">settings</span>
@@ -1129,40 +1134,205 @@
             </div>
         </div>
         
+        <!-- CRON JOBS SECTION -->
+        <div id="cron-jobs" class="content-section">
+            <div class="card">
+                <h3>
+                    <span class="material-icons">schedule</span>
+                    Scheduled Jobs (Cron)
+                </h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    List of all cron jobs and scheduled tasks configured on this system.
+                </p>
+                
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto;">
+                    {{CRON_JOBS_TABLE}}
+                </div>
+                
+                <div style="background: #f0fdf4; border-left: 4px solid #10b981; padding: 16px; border-radius: 6px; margin-top: 20px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <span class="material-icons" style="color: #16a34a;">info</span>
+                        <div style="color: #166534; font-size: 0.9em;">
+                            <strong>Cron Job Information:</strong>
+                            <ul style="margin: 8px 0; padding-left: 20px;">
+                                <li><strong>User Cron:</strong> Jobs from crontab -l</li>
+                                <li><strong>Root Cron:</strong> Jobs from /etc/crontabs/root (Alpine Linux)</li>
+                                <li><strong>Systemd:</strong> Services managed by systemd</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: #eff6ff; border-left: 4px solid #3b82f6; padding: 16px; border-radius: 6px; margin-top: 16px;">
+                    <div style="display: flex; align-items: flex-start; gap: 12px;">
+                        <span class="material-icons" style="color: #1d4ed8;">help</span>
+                        <div style="color: #1e3a8a; font-size: 0.9em;">
+                            <strong>Typical Schedule Format:</strong>
+                            <p style="font-family: monospace; background: white; padding: 8px; border-radius: 4px; margin: 8px 0;">
+                                minute hour day month day-of-week command
+                            </p>
+                            <p style="margin: 8px 0;">
+                                Example: <code style="background: white; padding: 2px 6px; border-radius: 3px;">*/5 * * * * /opt/power-monitor/collector.py</code> runs every 5 minutes
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <!-- SETUP WIZARD SECTION -->
         <div id="setup" class="content-section">
+            <!-- Configuration Editor -->
             <div class="card">
                 <h3>
                     <span class="material-icons">build</span>
                     Configuration Setup Wizard
                 </h3>
                 <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    Run the setup wizard from the command line to reconfigure your system settings.
+                    Edit critical configuration fields directly from the admin panel. Changes will be saved to <code>/opt/power-monitor/config.json</code>.
                 </p>
-                <div style="background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-                    <h4 style="margin-bottom: 12px; color: var(--text-primary);">SSH into your device:</h4>
-                    <pre style="background: #1a1a1a; color: #d4d4d4; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.9em;">ssh root@your-device-ip</pre>
+                
+                <form method="POST" id="configForm" style="display: none;">
+                    <input type="hidden" name="action" value="save_config">
+                </form>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+                    <!-- Home Assistant Section -->
+                    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin-top: 0; color: var(--text-primary);">
+                            <span class="material-icons" style="vertical-align: middle;">home</span>
+                            Home Assistant
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">URL</label>
+                                <input type="text" form="configForm" name="ha_url" value="{{CONFIG_HA_URL}}" placeholder="http://homeassistant.local:8123" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Access Token</label>
+                                <input type="password" form="configForm" name="ha_token" value="{{CONFIG_HA_TOKEN}}" placeholder="Bearer token" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <details style="font-size: 0.85em;">
+                                <summary style="cursor: pointer; color: var(--text-secondary);">Entity IDs (expand)</summary>
+                                <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                                    <input type="text" form="configForm" name="ha_voltage_entity" value="{{CONFIG_HA_VOLTAGE_ENTITY}}" placeholder="sensor.voltage" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.85em;">
+                                    <input type="text" form="configForm" name="ha_power_entity" value="{{CONFIG_HA_POWER_ENTITY}}" placeholder="sensor.live_power_usage" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.85em;">
+                                    <input type="text" form="configForm" name="ha_solar_entity" value="{{CONFIG_HA_SOLAR_ENTITY}}" placeholder="sensor.solar_generation" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.85em;">
+                                    <input type="text" form="configForm" name="ha_pf_entity" value="{{CONFIG_HA_PF_ENTITY}}" placeholder="sensor.power_factor" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.85em;">
+                                    <input type="text" form="configForm" name="ha_energy_entity" value="{{CONFIG_HA_ENERGY_ENTITY}}" placeholder="sensor.daily_energy_consumption" style="width: 100%; padding: 6px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-size: 0.85em;">
+                                </div>
+                            </details>
+                        </div>
+                    </div>
                     
-                    <h4 style="margin: 16px 0 12px; color: var(--text-primary);">Run the setup wizard:</h4>
-                    <pre style="background: #1a1a1a; color: #d4d4d4; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.9em;">cd /opt/power-monitor
-python3 setup_wizard.py</pre>
+                    <!-- GitHub Section -->
+                    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin-top: 0; color: var(--text-primary);">
+                            <span class="material-icons" style="vertical-align: middle;">code</span>
+                            GitHub Integration
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Access Token</label>
+                                <input type="password" form="configForm" name="gh_token" value="{{CONFIG_GH_TOKEN}}" placeholder="ghp_..." style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Repository</label>
+                                <input type="text" form="configForm" name="gh_repo" value="{{CONFIG_GH_REPO}}" placeholder="username/repo-name" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Branch</label>
+                                <input type="text" form="configForm" name="gh_branch" value="{{CONFIG_GH_BRANCH}}" placeholder="main" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">User Name</label>
+                                <input type="text" form="configForm" name="gh_user_name" value="{{CONFIG_GH_USER_NAME}}" placeholder="Your Name" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">User Email</label>
+                                <input type="text" form="configForm" name="gh_user_email" value="{{CONFIG_GH_USER_EMAIL}}" placeholder="your.email@example.com" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
                     
-                    <h4 style="margin: 16px 0 12px; color: var(--text-primary);">Or edit config directly:</h4>
-                    <pre style="background: #1a1a1a; color: #d4d4d4; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 0.9em;">vi /opt/power-monitor/config.json</pre>
+                    <!-- Data Collection Section -->
+                    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin-top: 0; color: var(--text-primary);">
+                            <span class="material-icons" style="vertical-align: middle;">database</span>
+                            Data Collection
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Collection Interval (minutes)</label>
+                                <input type="number" form="configForm" name="collection_interval" value="{{CONFIG_COLLECTION_INTERVAL}}" min="1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Publish Interval (minutes)</label>
+                                <input type="number" form="configForm" name="publish_interval" value="{{CONFIG_PUBLISH_INTERVAL}}" min="1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Retention Days</label>
+                                <input type="number" form="configForm" name="retention_days" value="{{CONFIG_RETENTION_DAYS}}" min="1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Health Check Interval (seconds)</label>
+                                <input type="number" form="configForm" name="health_interval" value="{{CONFIG_HEALTH_INTERVAL}}" min="1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System & Security Section -->
+                    <div style="border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                        <h4 style="margin-top: 0; color: var(--text-primary);">
+                            <span class="material-icons" style="vertical-align: middle;">security</span>
+                            System & Security
+                        </h4>
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Admin Username</label>
+                                <input type="text" form="configForm" name="admin_username" value="{{CONFIG_ADMIN_USERNAME}}" placeholder="admin" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Voltage Upper Limit (V)</label>
+                                <input type="number" form="configForm" name="ul_threshold" value="{{CONFIG_UL_THRESHOLD}}" step="0.1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.85em; color: var(--text-secondary); margin-bottom: 4px;">Voltage Lower Limit (V)</label>
+                                <input type="number" form="configForm" name="ll_threshold" value="{{CONFIG_LL_THRESHOLD}}" step="0.1" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box;">
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
-                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 6px;">
+                <!-- Action Buttons -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+                    <button type="submit" form="configForm" class="primary" style="padding: 12px; border: none; border-radius: 6px; background: #3b82f6; color: white; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span class="material-icons">save</span>
+                        Save Configuration
+                    </button>
+                    <button type="button" id="restartBtn" class="primary" style="padding: 12px; border: none; border-radius: 6px; background: #10b981; color: white; cursor: pointer; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span class="material-icons">restart_alt</span>
+                        Restart Services
+                    </button>
+                </div>
+                
+                <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 6px; margin-bottom: 24px;">
                     <div style="display: flex; align-items: flex-start; gap: 12px;">
-                        <span class="material-icons" style="color: #d97706;">warning</span>
-                        <div>
-                            <strong style="color: #92400e;">Important:</strong>
-                            <p style="color: #92400e; margin-top: 4px;">After making configuration changes, restart the services for changes to take effect:</p>
-                            <pre style="background: #1a1a1a; color: #d4d4d4; padding: 12px; border-radius: 4px; margin-top: 8px; font-size: 0.85em;">systemctl restart power-monitor-scheduler</pre>
+                        <span class="material-icons" style="color: #d97706;">info</span>
+                        <div style="color: #92400e; font-size: 0.9em;">
+                            <strong>How to Use:</strong>
+                            <ol style="margin: 8px 0; padding-left: 20px;">
+                                <li>Edit the configuration fields above</li>
+                                <li>Click "Save Configuration" to persist changes</li>
+                                <li>Click "Restart Services" to apply changes (recommended)</li>
+                                <li>Check the logs to verify successful restart</li>
+                            </ol>
                         </div>
                     </div>
                 </div>
             </div>
             
+            <!-- Additional Resources -->
             <div class="cards">
                 <div class="card">
                     <h3>
@@ -1171,16 +1341,16 @@ python3 setup_wizard.py</pre>
                     </h3>
                     <div style="color: var(--text-secondary); line-height: 1.8;">
                         <p style="margin-bottom: 12px;"><strong>1. Home Assistant</strong><br>
-                        Configure your Home Assistant URL and access token</p>
+                        Configure your Home Assistant URL and access token. Find entity IDs in Developer Tools.</p>
                         
                         <p style="margin-bottom: 12px;"><strong>2. GitHub Integration</strong><br>
-                        Set up GitHub token and repository for data publishing</p>
+                        Set up GitHub token and repository for data publishing (optional but recommended).</p>
                         
                         <p style="margin-bottom: 12px;"><strong>3. Data Collection</strong><br>
-                        Adjust collection intervals and retention settings</p>
+                        Adjust collection intervals and retention settings based on your needs.</p>
                         
                         <p style="margin-bottom: 12px;"><strong>4. Admin Credentials</strong><br>
-                        Update admin username and password</p>
+                        Update admin username. Password can only be changed via command line (python3 setup_wizard.py).</p>
                     </div>
                 </div>
                 
@@ -1205,6 +1375,21 @@ python3 setup_wizard.py</pre>
                     </div>
                 </div>
             </div>
+            
+            <script>
+                document.getElementById('restartBtn').addEventListener('click', function() {
+                    if (confirm('This will restart the power monitor scheduler service. Continue?')) {
+                        fetch('/admin.cgi', {
+                            method: 'POST',
+                            body: new FormData(document.getElementById('configForm')).append('action', 'restart_services'),
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'}
+                        }).then(r => r.text()).then(t => {
+                            alert('Services restarting. Please refresh the page in a moment.');
+                            setTimeout(() => location.reload(), 2000);
+                        }).catch(e => alert('Error: ' + e));
+                    }
+                });
+            </script>
         </div>
     </div>
 </body>
