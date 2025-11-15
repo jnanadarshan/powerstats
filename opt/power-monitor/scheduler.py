@@ -2,9 +2,9 @@
 """
 Scheduler for Power Monitor Nightly Jobs
 Runs aggregation and GitHub sync tasks at scheduled times:
-- 12:02 AM: Aggregate to weekly.json
-- 12:05 AM: Aggregate to monthly.json + sync to GitHub
-- 12:15 AM: Aggregate to yearly.json + sync to GitHub
+- 12:05 AM: Aggregate weekly.json → monthly.json + sync to GitHub
+- 12:15 AM: Aggregate monthly.json → yearly.json + sync to GitHub
+Note: weekly.json is now updated directly by collector.py with granular data (7-day retention)
 """
 import sys
 import time
@@ -37,12 +37,11 @@ class NightlyScheduler:
         self.github_sync = GitHubSync(self.config_path)
         
         # Schedule times (hour, minute)
-        self.weekly_time = (0, 2)    # 12:02 AM
+        # Note: weekly aggregation removed - collector now updates weekly.json directly
         self.monthly_time = (0, 5)   # 12:05 AM
         self.yearly_time = (0, 15)   # 12:15 AM
         
         # Track last run dates to avoid double-running
-        self.last_weekly_run = None
         self.last_monthly_run = None
         self.last_yearly_run = None
     
@@ -67,16 +66,8 @@ class NightlyScheduler:
         return False
     
     def run_weekly_task(self):
-        """Run weekly aggregation at 12:02 AM."""
-        logger.info("=" * 60)
-        logger.info("Running weekly aggregation task...")
-        try:
-            self.aggregator.aggregate_weekly()
-            self.last_weekly_run = datetime.now().date().isoformat()
-            logger.info("Weekly task completed successfully")
-        except Exception as e:
-            logger.error(f"Weekly task failed: {e}", exc_info=True)
-        logger.info("=" * 60)
+        """Weekly task removed - collector.py now writes granular data directly to weekly.json"""
+        pass  # Placeholder kept for backwards compatibility if called
     
     def run_monthly_task(self):
         """Run monthly aggregation and GitHub sync at 12:05 AM."""
@@ -115,9 +106,9 @@ class NightlyScheduler:
         logger.info("=" * 60)
     
     def run_once(self):
-        """Run all tasks immediately (for testing)."""
-        logger.info("Running all tasks immediately...")
-        self.run_weekly_task()
+        """Run aggregation tasks immediately (for testing). Weekly is handled by collector."""
+        logger.info("Running aggregation tasks immediately...")
+        logger.info("Note: weekly.json is maintained by collector.py")
         self.run_monthly_task()
         self.run_yearly_task()
     
@@ -127,17 +118,13 @@ class NightlyScheduler:
         logger.info(f"Data directory: {self.data_dir}")
         logger.info(f"Config: {self.config_path}")
         logger.info(f"Schedule:")
-        logger.info(f"  - Weekly:  {self.weekly_time[0]:02d}:{self.weekly_time[1]:02d}")
-        logger.info(f"  - Monthly: {self.monthly_time[0]:02d}:{self.monthly_time[1]:02d}")
-        logger.info(f"  - Yearly:  {self.yearly_time[0]:02d}:{self.yearly_time[1]:02d}")
+        logger.info(f"  - Monthly: {self.monthly_time[0]:02d}:{self.monthly_time[1]:02d} (aggregates weekly.json → monthly.json)")
+        logger.info(f"  - Yearly:  {self.yearly_time[0]:02d}:{self.yearly_time[1]:02d} (aggregates monthly.json → yearly.json)")
+        logger.info(f"Note: weekly.json is updated directly by collector.py (granular data, 7-day retention)")
         logger.info("Scheduler is running. Press Ctrl+C to stop.")
         
         try:
             while True:
-                # Check weekly task
-                if self.should_run(self.weekly_time, self.last_weekly_run):
-                    self.run_weekly_task()
-                
                 # Check monthly task
                 if self.should_run(self.monthly_time, self.last_monthly_run):
                     self.run_monthly_task()

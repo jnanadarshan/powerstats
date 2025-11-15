@@ -148,11 +148,20 @@ class HomeAssistantClient:
 
 
 class DataManager:
-    """Manages data storage - writes to daily.json"""
+    """Manages data storage - writes to JSON files with time-based retention"""
     
-    def __init__(self, data_file: str, max_points: int = 144): # 144 points for 24 hours at 10-min intervals
+    def __init__(self, data_file: str, max_points: int = 144, retention_hours: int = 24):
+        """
+        Initialize data manager.
+        
+        Args:
+            data_file: Path to the JSON file to manage
+            max_points: Maximum number of data points to keep (used as fallback if smaller than retention)
+            retention_hours: How many hours of data to keep (e.g., 24 for daily, 168 for weekly)
+        """
         self.data_file = data_file
         self.max_points = max_points
+        self.retention_hours = retention_hours
         self._ensure_data_file()
     
     def _ensure_data_file(self):
@@ -184,7 +193,7 @@ class DataManager:
             return []
 
     def add_data_point(self, timestamp: str, entities_data: Dict[str, Dict[str, Any]]):
-        """Add a new multi-entity data point to daily.json"""
+        """Add a new multi-entity data point, trimming old data based on retention period"""
         data_points = self.load_data()
         
         # Build the flat data point object
@@ -205,12 +214,18 @@ class DataManager:
         # Sort by timestamp to be safe
         data_points.sort(key=lambda x: x['timestamp'])
         
-        # Trim the data to max_points
+        # Trim data based on retention hours - remove any point older than retention_hours
+        cutoff_time = datetime.now() - timedelta(hours=self.retention_hours)
+        cutoff_iso = cutoff_time.isoformat()
+        data_points = [p for p in data_points if p['timestamp'] >= cutoff_iso]
+        
+        # Also apply max_points as a hard limit (fallback)
         if len(data_points) > self.max_points:
             data_points = data_points[-self.max_points:]
             
         self._write_data(data_points)
-        logger.info(f"Added multi-entity data point at {timestamp}. Total points: {len(data_points)}")
+        file_name = os.path.basename(self.data_file)
+        logger.info(f"Updated {file_name} at {timestamp}. Total points: {len(data_points)}, retention: {self.retention_hours}h")
 
 
 def main():
@@ -284,9 +299,23 @@ def main():
         points_per_day = max(1, int(24 * 60 / interval_min))
         logger.info(f"Collection interval: {interval_min} minutes -> storing {points_per_day} points in daily.json")
 
-        data_manager = DataManager(
+        # Create data managers for both daily and weekly files
+        weekly_data_file = os.path.join(config.web_root, 'weekly.json')
+        
+        # Daily: 24 hours of data at collection interval
+        daily_manager = DataManager(
             daily_data_file,
-            max_points=points_per_day
+            max_points=points_per_day,
+            retention_hours=24
+        )
+        
+        # Weekly: 7 days of granular data (same format as daily)
+        # Calculate points for 7 days
+        points_per_week = max(1, int(7 * 24 * 60 / interval_min))
+        weekly_manager = DataManager(
+            weekly_data_file,
+            max_points=points_per_week,
+            retention_hours=168  # 7 days * 24 hours
         )
         
         # Fetch current states for all entities
@@ -305,8 +334,9 @@ def main():
             unit = entity_state.get('attributes', {}).get('unit_of_measurement', '')
             logger.info(f"  {entity_name}: {value}{unit}")
         
-        # Add data point with all entity values
-        data_manager.add_data_point(timestamp, entities_data)
+        # Add data point to both daily and weekly files
+        daily_manager.add_data_point(timestamp, entities_data)
+        weekly_manager.add_data_point(timestamp, entities_data)
         
         logger.info("Multi-entity collection completed successfully")
         return 0

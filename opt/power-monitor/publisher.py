@@ -122,9 +122,10 @@ class GitHubPublisher:
         
         # Multi-JSON architecture: publish HTML and aggregated JSON files
         # NOTE: daily.json is kept local-only to prevent merge conflicts
+        # NOTE: weekly.json contains granular data (7-day retention), not aggregated summaries
         files_to_publish = [
             ('index.html', 'index.html', f'Update dashboard - {timestamp}'),
-            ('weekly.json', 'weekly.json', f'Update weekly data - {timestamp}'),
+            ('weekly.json', 'weekly.json', f'Update weekly granular data - {timestamp}'),
             ('monthly.json', 'monthly.json', f'Update monthly data - {timestamp}'),
             ('yearly.json', 'yearly.json', f'Update yearly data - {timestamp}')
         ]

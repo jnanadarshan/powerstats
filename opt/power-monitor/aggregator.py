@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 Data Aggregator for Power Monitoring System
-Processes daily data and updates weekly, monthly, and yearly aggregates.
+Processes daily data and updates monthly and yearly aggregates from weekly.json.
 This script is intended to be run once a day, after midnight.
+Note: weekly.json is now maintained by collector.py with granular data (7-day retention)
 """
 
 import json
@@ -129,13 +130,12 @@ def main():
         web_root = Path(config.web_root)
         
         daily_file = web_root / 'daily.json'
-        weekly_file = web_root / 'weekly.json'
         monthly_file = web_root / 'monthly.json'
         yearly_file = web_root / 'yearly.json'
 
-        logger.info("Starting daily aggregation process.")
+        logger.info("Starting aggregation process.")
 
-        # 1. Load the detailed daily data
+        # 1. Load the detailed daily data (for yesterday's summary)
         if not daily_file.exists() or daily_file.stat().st_size == 0:
             logger.warning("daily.json is empty or does not exist. Nothing to aggregate.")
             return 0
@@ -162,8 +162,8 @@ def main():
 
         logger.info(f"Generated summary for {yesterday_str}: {daily_summary}")
 
-        # 4. Update the aggregate files with the new daily summary
-        update_aggregate_file(str(weekly_file), daily_summary, 7)
+        # 4. Update monthly and yearly files with the new daily summary
+        # Note: weekly.json is no longer aggregated here - it's maintained by collector.py
         update_aggregate_file(str(monthly_file), daily_summary, 30)
         update_aggregate_file(str(yearly_file), daily_summary, 365)
 
