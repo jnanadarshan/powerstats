@@ -627,16 +627,37 @@ def format_cron_schedule(cron_line: str) -> dict:
 
 
 def render_cron_jobs_table() -> str:
-    """Get recent log entries"""
-    if not os.path.exists(log_file):
-        return []
-    
+    """Render cron jobs as an HTML table for display in the UI.
+
+    Uses `get_cron_jobs_detailed()` to obtain a list of cron jobs and
+    returns an HTML snippet (string). On error returns a small error
+    message HTML block so the caller can embed it directly in the
+    template.
+    """
     try:
-        with open(log_file, 'r') as f:
-            all_lines = f.readlines()
-            return all_lines[-lines:]
+        jobs = get_cron_jobs_detailed()
+        if not jobs:
+            return '<div style="color: #64748b;">No cron jobs found</div>'
+
+        html = []
+        html.append('<table class="data-files-table" style="width:100%;border-collapse:collapse;">')
+        html.append('<thead><tr><th style="text-align:left;padding:8px;border-bottom:1px solid var(--border);">Schedule</th>'
+                    '<th style="text-align:left;padding:8px;border-bottom:1px solid var(--border);">Source</th>'
+                    '<th style="text-align:left;padding:8px;border-bottom:1px solid var(--border);">Type</th></tr></thead>')
+        html.append('<tbody>')
+
+        for job in jobs:
+            schedule = job.get('schedule', '')
+            source = job.get('source', '')
+            jtype = job.get('type', '')
+            html.append(f'<tr>\n<td style="padding:8px;border-bottom:1px solid var(--border);font-weight:600;">{schedule}</td>'
+                        f'<td style="padding:8px;border-bottom:1px solid var(--border);">{source}</td>'
+                        f'<td style="padding:8px;border-bottom:1px solid var(--border);">{jtype}</td></tr>')
+
+        html.append('</tbody></table>')
+        return '\n'.join(html)
     except Exception as e:
-        return [f"Error reading log: {str(e)}"]
+        return f'<div style="color: #ef4444;">Error loading cron jobs: {str(e)}</div>'
 
 
 def get_config_for_display(config_path: str = '/opt/power-monitor/config.json') -> dict:
