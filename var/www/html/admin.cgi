@@ -21,6 +21,50 @@ sys.path.insert(0, '/opt/power-monitor')
 
 from config_manager import get_config
 from collector import MaintenanceMode
+import time
+import hmac
+import hashlib
+
+
+def parse_cookies() -> dict:
+    """Parse HTTP_COOKIE env into dict"""
+    cookie_header = os.environ.get('HTTP_COOKIE', '')
+    cookies = {}
+    for part in cookie_header.split(';'):
+        if '=' in part:
+            k, v = part.strip().split('=', 1)
+            cookies[k] = v
+    return cookies
+
+
+def make_session_cookie(username: str, config) -> str:
+    """Generate a signed session cookie value: username|timestamp|sig"""
+    secret = config.get('admin.session_secret', '') or config.get('admin.password_hash', '') or 'changeme'
+    ts = str(int(time.time()))
+    payload = f"{username}|{ts}"
+    sig = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}|{sig}"
+
+
+def verify_session_cookie(cookie_val: str, config) -> bool:
+    try:
+        secret = config.get('admin.session_secret', '') or config.get('admin.password_hash', '') or 'changeme'
+        parts = cookie_val.split('|')
+        if len(parts) != 3:
+            return False
+        username, ts, sig = parts
+        payload = f"{username}|{ts}"
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, sig):
+            return False
+        # check timestamp age
+        age_minutes = int(config.get('admin.session_timeout_minutes', 1440))
+        if int(time.time()) - int(ts) > (age_minutes * 60):
+            return False
+        return True
+    except Exception:
+        return False
+
 
 
 def check_auth(form_data, config) -> bool:
@@ -242,36 +286,93 @@ def handle_action(action: str, config, form) -> dict:
     return result
 
 
+def render_login(message: str = '') -> str:
+        """Return a modern login HTML page"""
+        message_html = f"<div style='color:#e11d48;padding:10px;border-radius:8px;margin-bottom:12px;background:#fff5f7;border:1px solid #fecaca;'>" + message + "</div>" if message else ''
+        return f'''Content-Type: text/html
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width,initial-scale=1">
+        <title>Admin Login - Power Monitor</title>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+        <style>
+                body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0}
+                .login{background:#fff;padding:40px;border-radius:14px;box-shadow:0 10px 40px rgba(2,6,23,0.2);width:100%;max-width:420px}
+                .login h1{font-size:1.8rem;margin-bottom:8px;color:#0f172a}
+                .login p{color:#64748b;margin-bottom:20px}
+                input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:8px;margin-bottom:12px}
+                button{display:inline-block;padding:12px 18px;border-radius:8px;border:none;background:#334155;color:#fff;font-weight:600;cursor:pointer}
+                .logo{font-size:2.5rem;margin-bottom:8px}
+        </style>
+</head>
+<body>
+    <form class="login" method="post" action="/admin.cgi">
+        <div class="logo">⚡</div>
+        <h1>Admin Login</h1>
+        <p>Authenticate to access the power monitor admin panel.</p>
+        {message_html}
+        <label>Username</label>
+        <input type="text" name="username" required autofocus />
+        <label>Password</label>
+        <input type="password" name="password" required />
+        <div style="display:flex;gap:10px;margin-top:10px;">
+            <button type="submit">Sign in</button>
+        </div>
+    </form>
+</body>
+</html>
+'''
+
+
 # Due to length constraints, the HTML rendering will be loaded from templates directory
 # Creating template file separately
+COOKIE_NAME = 'PM_SESS'
+
+
 def main():
     """Main CGI handler"""
     try:
         form = cgi.FieldStorage()
         config = get_config()
         
-        # Check for logout
+        # Handle logout (query or form)
         if 'logout' in form or os.environ.get('QUERY_STRING') == 'logout=1':
-            # Render login (inline for simplicity)
-            print("Content-Type: text/html\n")
-            print("<!DOCTYPE html><html><head><title>Admin Login</title></head>")
-            print("<body><h1>Redirecting to login...</h1></body></html>")
+            # Clear cookie and show login page
+            print(f"Set-Cookie: {COOKIE_NAME}=; HttpOnly; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax")
+            print(render_login('You have been logged out.'))
             return
         
-        # Check authentication
-        authenticated = form.getvalue('authenticated') == '1'
+        # Check authentication via cookie
+        cookies = parse_cookies()
+        cookie_val = cookies.get(COOKIE_NAME)
+        authenticated = False
+        if cookie_val and verify_session_cookie(cookie_val, config):
+            authenticated = True
         
         if not authenticated and form.getvalue('username'):
             if check_auth(form, config):
-                authenticated = True
+                # Generate session cookie and redirect to dashboard
+                username = form.getvalue('username')
+                session_val = make_session_cookie(username, config)
+                # compute max-age
+                max_age = int(config.get('admin.session_timeout_minutes', 1440)) * 60
+                print(f"Set-Cookie: {COOKIE_NAME}={session_val}; HttpOnly; Path=/; Max-Age={max_age}; SameSite=Lax")
+                # Redirect via 303 See Other
+                print("Status: 303 See Other")
+                print("Location: /admin.cgi")
+                print()
+                return
             else:
-                print("Content-Type: text/html\n")
-                print("<!DOCTYPE html><html><body><h1>Invalid credentials</h1></body></html>")
+                # Render login with message
+                print(render_login('Invalid credentials'))
                 return
         
         if not authenticated:
-            print("Content-Type: text/html\n")
-            print("<!DOCTYPE html><html><body><h1>Please login</h1></body></html>")
+            # Render modern login page
+            print(render_login())
             return
         
         # Get system metrics
