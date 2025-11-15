@@ -355,12 +355,30 @@ def get_system_metrics(config) -> dict:
             try:
                 with open(filepath, 'r') as f:
                     data = json.load(f)
-                    points = len(data.get('data_points', []))
+                    # Try multiple common keys for data points
+                    points = 0
+                    if isinstance(data, dict):
+                        # Try 'data_points' key (most common)
+                        if 'data_points' in data:
+                            points_list = data.get('data_points', [])
+                            points = len(points_list) if isinstance(points_list, list) else 0
+                        # Try 'data' key as fallback
+                        elif 'data' in data:
+                            points_list = data.get('data', [])
+                            points = len(points_list) if isinstance(points_list, list) else 0
+                        # Try 'points' key as fallback
+                        elif 'points' in data:
+                            points_list = data.get('points', [])
+                            points = len(points_list) if isinstance(points_list, list) else 0
+                    elif isinstance(data, list):
+                        # If the root is a list, count items directly
+                        points = len(data)
+                    
                     total_points += points
                     metrics['data_files'][filename] = {
                         'exists': True,
                         'points': points,
-                        'last_update': data.get('last_update', 'Unknown'),
+                        'last_update': data.get('last_update', 'Unknown') if isinstance(data, dict) else 'Unknown',
                         'size': get_file_size(filepath),
                         'age': get_file_age(filepath)
                     }
