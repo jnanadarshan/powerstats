@@ -33,7 +33,7 @@
             background: var(--bg-primary);
             min-height: 100vh;
             color: var(--text-primary);
-            display: flex;
+            display: block;
         }
         
         /* Sidebar */
@@ -147,8 +147,11 @@
         /* Main Content */
         .main-content {
             margin-left: 250px;
-            flex: 1;
+            width: calc(100% - 250px);
+            min-height: 100vh;
             padding: 30px;
+            position: relative;
+            z-index: 1;
         }
         
         /* Top Bar */
@@ -342,6 +345,8 @@
         /* Content Sections */
         .content-section {
             display: none;
+            position: relative;
+            z-index: 1;
         }
         
         .content-section.active {
@@ -551,6 +556,7 @@
             
             .main-content {
                 margin-left: 70px;
+                width: calc(100% - 70px);
             }
         }
         
@@ -561,6 +567,7 @@
             
             .main-content {
                 margin-left: 0;
+                width: 100%;
                 padding: 20px;
             }
             
@@ -574,7 +581,7 @@
         }
     </style>
     <script>
-        function showSection(sectionId) {
+        function showSection(sectionId, element) {
             // Hide all sections
             document.querySelectorAll('.content-section').forEach(section => {
                 section.classList.remove('active');
@@ -586,10 +593,15 @@
             });
             
             // Show selected section
-            document.getElementById(sectionId).classList.add('active');
+            const targetSection = document.getElementById(sectionId);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
             
             // Activate nav item
-            event.currentTarget.classList.add('active');
+            if (element && element.classList) {
+                element.classList.add('active');
+            }
             
             // Update page title
             const titles = {
@@ -600,7 +612,10 @@
                 'settings': 'System Settings',
                 'setup': 'Setup Wizard'
             };
-            document.querySelector('.page-title').textContent = titles[sectionId] || 'Admin Control';
+            const pageTitle = document.querySelector('.page-title');
+            if (pageTitle) {
+                pageTitle.textContent = titles[sectionId] || 'Admin Control';
+            }
         }
         
         function confirmAction(message) {
@@ -619,27 +634,27 @@
         </div>
         
         <nav class="sidebar-nav">
-            <a class="nav-item active" onclick="showSection('dashboard')">
+            <a class="nav-item active" onclick="showSection('dashboard', this)">
                 <span class="material-icons">dashboard</span>
                 <span>Dashboard</span>
             </a>
-            <a class="nav-item" onclick="showSection('data-files')">
+            <a class="nav-item" onclick="showSection('data-files', this)">
                 <span class="material-icons">folder_open</span>
                 <span>Data Files</span>
             </a>
-            <a class="nav-item" onclick="showSection('logs')">
+            <a class="nav-item" onclick="showSection('logs', this)">
                 <span class="material-icons">article</span>
                 <span>System Logs</span>
             </a>
-            <a class="nav-item" onclick="showSection('cron-jobs')">
+            <a class="nav-item" onclick="showSection('cron-jobs', this)">
                 <span class="material-icons">schedule</span>
                 <span>Cron Jobs</span>
             </a>
-            <a class="nav-item" onclick="showSection('settings')">
+            <a class="nav-item" onclick="showSection('settings', this)">
                 <span class="material-icons">settings</span>
                 <span>Settings</span>
             </a>
-            <a class="nav-item" onclick="showSection('setup')">
+            <a class="nav-item" onclick="showSection('setup', this)">
                 <span class="material-icons">build</span>
                 <span>Setup Wizard</span>
             </a>
@@ -879,30 +894,7 @@
             </div>
         </div>
         
-                <!-- System Info -->
-                <div class="card">
-                    <h3>
-                        <span class="material-icons">computer</span>
-                        System Information
-                    </h3>
-                    <div class="card-content">
-                        <div class="metric-row">
-                            <span class="metric-label">Python Version</span>
-                            <span class="metric-value">{{PYTHON_VERSION}}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">GitHub Status</span>
-                            <span class="metric-value {{GITHUB_STATUS_CLASS}}">{{GITHUB_STATUS}}</span>
-                        </div>
-                        <div class="metric-row">
-                            <span class="metric-label">Repository</span>
-                            <span class="metric-value" style="font-size: 0.85em;">{{GITHUB_REPO}}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Recent Activity removed from dashboard; available in System Logs tab only -->
+        <!-- Recent Activity removed from dashboard; available in System Logs tab only -->
         </div>
         
         <!-- DATA FILES SECTION -->
