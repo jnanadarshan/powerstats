@@ -117,6 +117,42 @@ def get_file_size(filepath: str) -> str:
     return f"{size:.1f} TB"
 
 
+def get_recent_logs(path: str, lines: int = 100) -> list:
+    """Return the last `lines` lines from `path` as a list of strings.
+
+    This is a simple and robust implementation that falls back to reading
+    the whole file if needed. It always returns a list (possibly empty)
+    and does not raise on common IO errors.
+    """
+    try:
+        if not os.path.exists(path):
+            return []
+
+        # Try an efficient tail-like read for large files
+        # If it fails (e.g., permission), fall back to readlines
+        try:
+            with open(path, 'rb') as f:
+                avg_line_length = 200
+                to_read = max(lines * avg_line_length, 4096)
+                try:
+                    f.seek(-to_read, os.SEEK_END)
+                except OSError:
+                    f.seek(0)
+                data = f.read().decode('utf-8', errors='replace')
+                all_lines = data.splitlines()
+        except Exception:
+            with open(path, 'r', encoding='utf-8', errors='replace') as f:
+                all_lines = f.readlines()
+
+        # Normalize lines to strings without trailing newlines
+        all_lines = [ln.rstrip('\n') for ln in all_lines]
+        if lines <= 0:
+            return all_lines
+        return all_lines[-lines:]
+    except Exception:
+        return []
+
+
 def render_dashboard(metrics: dict, message: str = '', config=None) -> str:
     """Render the admin dashboard from template"""
     template_path = '/var/www/html/admin_dashboard.html'
