@@ -32,19 +32,19 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log_info() {
-    echo "${BLUE}[INFO]${NC} $1"
+    printf "%b\n" "${BLUE}[INFO]${NC} $1"
 }
 
 log_success() {
-    echo "${GREEN}[SUCCESS]${NC} $1"
+    printf "%b\n" "${GREEN}[SUCCESS]${NC} $1"
 }
 
 log_warn() {
-    echo "${YELLOW}[WARN]${NC} $1"
+    printf "%b\n" "${YELLOW}[WARN]${NC} $1"
 }
 
 log_error() {
-    echo "${RED}[ERROR]${NC} $1"
+    printf "%b\n" "${RED}[ERROR]${NC} $1"
 }
 
 # Banner
@@ -118,22 +118,30 @@ log_info "Updating package repositories..."
 apk update
 
 log_info "Installing minimal system packages..."
-# Install only essential packages - minimize storage footprint
-apk add --no-cache \
-    python3 \
-    py3-requests \
-    py3-jinja2 \
-    lighttpd \
-    curl \
-    dcron \
-    busybox-syslogd \
-    logrotate
+# Install packages one-by-one to avoid abort when a package is unavailable in some Alpine repos
+DESIRED_PKGS="python3 py3-requests py3-jinja2 lighttpd curl dcron logrotate"
+for pkg in $DESIRED_PKGS; do
+    log_info "Installing package: $pkg"
+    if apk add --no-cache "$pkg" >/dev/null 2>&1; then
+        log_success "Installed: $pkg"
+    else
+        log_warn "Package not available or failed to install: $pkg (continuing)"
+    fi
+done
 
-# Note: We use Alpine's py3-* packages instead of pip to avoid externally-managed-environment error
+# Try to provide a syslog daemon: prefer busybox-syslogd if available, otherwise busybox provides syslogd
+if apk add --no-cache busybox-syslogd >/dev/null 2>&1; then
+    log_success "Installed: busybox-syslogd"
+elif apk add --no-cache busybox >/dev/null 2>&1; then
+    log_success "Installed: busybox (provides syslogd)"
+else
+    log_warn "No syslog package available (busybox-syslogd/busybox). Syslog may not be configured automatically."
+fi
+
 log_info "Package installation complete"
-apk info -s python3 py3-requests py3-jinja2 lighttpd curl | grep 'size' || echo "Package info not available"
+apk info -s python3 py3-requests py3-jinja2 lighttpd curl 2>/dev/null || echo "Package info not available"
 
-log_success "Dependencies installed"
+log_success "Dependencies installed (best-effort)"
 
 # Enable and start cron and syslog so scheduled jobs will run out of the box
 log_info "Enabling cron (dcron) and syslog (syslogd) services"
@@ -318,8 +326,7 @@ fi
 log_info "Reading interval settings from /opt/power-monitor/config.json"
 
 # Read cron expressions (two lines: collector_cron, publisher_cron)
-read COL_CRON PUB_CRON <<'CRON'
-$(python3 - <<'PY'
+CRON_OUT=$(python3 - <<'PY'
 import json
 cfg=json.load(open('/opt/power-monitor/config.json'))
 d=cfg.get('data',{})
@@ -344,8 +351,11 @@ pub = d.get('publish_interval_minutes', 60)
 print(cron_for_minutes(local) or "*/10 * * * *")
 print(cron_for_minutes(pub) or "0 * * * *")
 PY
-CRON
-CRON
+)
+
+# Split the two-line output into COL_CRON and PUB_CRON safely
+COL_CRON=$(printf '%s' "$CRON_OUT" | sed -n '1p' 2>/dev/null || printf '')
+PUB_CRON=$(printf '%s' "$CRON_OUT" | sed -n '2p' 2>/dev/null || printf '')
 
 if [ -z "${COL_CRON}" ] || [ -z "${PUB_CRON}" ]; then
     log_warn "Could not determine cron schedules from config. Using defaults."
