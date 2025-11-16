@@ -1,9 +1,9 @@
-#!/usr/bin/env zsh
+#!/bin/sh
 # backup_restore.sh
 # Interactive helper to backup and restore Powerstats config and JSON data files.
 # Places: repo root `config.json` and data files under `var/www/html` (daily.json, weekly.json, monthly.json, yearly.json)
 
-set -euo pipefail
+set -eu
 
 timestamp() {
   date +"%Y%m%d-%H%M%S"
@@ -11,21 +11,21 @@ timestamp() {
 
 read_answer() {
   # prompt with default
-  local prompt="$1"; shift
-  local default="$1"; shift
-  local ans
-  echo -n "$prompt [$default]: "
+  prompt="$1"; shift
+  default="$1"; shift
+  ans=""
+  printf "%s [%s]: " "$prompt" "$default"
   read ans
-  if [[ -z "$ans" ]]; then
-    echo "$default"
+  if [ -z "$ans" ]; then
+    printf "%s" "$default"
   else
-    echo "$ans"
+    printf "%s" "$ans"
   fi
 }
 
 confirm() {
-  local msg="$1"; shift
-  echo -n "$msg (y/N): "
+  msg="$1"; shift
+  printf "%s (y/N): " "$msg"
   read yn
   case "$yn" in
     [Yy]|[Yy][Ee][Ss]) return 0 ;;
@@ -34,13 +34,7 @@ confirm() {
 }
 
 # default file list (relative to repo root / source dir)
-FILES=(
-  "config.json"
-  "var/www/html/daily.json"
-  "var/www/html/weekly.json"
-  "var/www/html/monthly.json"
-  "var/www/html/yearly.json"
-)
+FILES="config.json var/www/html/daily.json var/www/html/weekly.json var/www/html/monthly.json var/www/html/yearly.json"
 
 print_header() {
   echo "========================================"
@@ -49,9 +43,9 @@ print_header() {
 }
 
 list_files_found() {
-  local src_dir="$1"
-  for f in "${FILES[@]}"; do
-    if [[ -f "$src_dir/$f" ]]; then
+  src_dir="$1"
+  for f in $FILES; do
+    if [ -f "$src_dir/$f" ]; then
       echo "FOUND: $f"
     else
       echo "MISSING: $f"
@@ -60,23 +54,22 @@ list_files_found() {
 }
 
 perform_backup() {
-  local src_dir dest_dir dest_sub ts
   src_dir="$1"
   dest_dir="$2"
   ts=$(timestamp)
   dest_sub="$dest_dir/powerstats-backup-$ts"
   echo "Creating backup folder: $dest_sub"
-  mkdir -p -- "$dest_sub"
+  mkdir -p "$dest_sub"
   echo "Backing up files from: $src_dir"
-  local any=0
-  local manifest="$dest_sub/manifest.txt"
+  any=0
+  manifest="$dest_sub/manifest.txt"
   echo "Backup created: $ts" > "$manifest"
   echo "Source: $src_dir" >> "$manifest"
   echo "Files:" >> "$manifest"
-  for f in "${FILES[@]}"; do
-    if [[ -f "$src_dir/$f" ]]; then
-      mkdir -p -- "$(dirname "$dest_sub/$f")"
-      cp -a -- "$src_dir/$f" "$dest_sub/$f"
+  for f in $FILES; do
+    if [ -f "$src_dir/$f" ]; then
+      mkdir -p "$(dirname "$dest_sub/$f")"
+      cp -p "$src_dir/$f" "$dest_sub/$f"
       echo "$f -> $dest_sub/$f" >> "$manifest"
       echo " - copied: $f"
       any=1
@@ -85,9 +78,9 @@ perform_backup() {
       echo "MISSING: $f" >> "$manifest"
     fi
   done
-  if [[ $any -eq 0 ]]; then
+  if [ "$any" -eq 0 ] 2>/dev/null; then
     echo "No files were copied. Removing empty backup folder."
-    rm -rf -- "$dest_sub"
+    rm -rf "$dest_sub"
     return 1
   fi
   echo "Backup complete. Manifest at: $manifest"
@@ -95,15 +88,14 @@ perform_backup() {
 }
 
 choose_backup_folder() {
-  local base
   base=$(read_answer "Enter destination folder for backups (absolute path)" "$HOME")
-  mkdir -p -- "$base"
+  mkdir -p "$base"
   echo "$base"
 }
 
 list_available_backups() {
-  local base="$1"
-  if [[ ! -d "$base" ]]; then
+  base="$1"
+  if [ ! -d "$base" ]; then
     echo "No such folder: $base"
     return 1
   fi
@@ -112,25 +104,21 @@ list_available_backups() {
 }
 
 perform_restore() {
-  local backup_dir target_dir
   backup_dir="$1"
   target_dir="$2"
-  if [[ ! -d "$backup_dir" ]]; then
+  if [ ! -d "$backup_dir" ]; then
     echo "Backup folder not found: $backup_dir"
     return 1
   fi
   echo "Restoring from $backup_dir to $target_dir"
-  # for safety, list files present in backup
-  local available_files
-  available_files=($(find "$backup_dir" -type f -maxdepth 4 -printf "%P\n" 2>/dev/null))
-  if [[ ${#available_files[@]} -eq 0 ]]; then
+  # for safety, list files present in backup (portable)
+  available_files=$(cd "$backup_dir" 2>/dev/null && find . -type f | sed 's|^\./||')
+  if [ -z "$available_files" ]; then
     echo "No files found in backup to restore."
     return 1
   fi
   echo "Files in backup:"
-  for f in "${available_files[@]}"; do
-    echo " - $f"
-  done
+  printf '%s\n' "$available_files" | sed 's|^| - |'
 
   if ! confirm "Proceed to restore all files (will overwrite target files)?"; then
     echo "Restore aborted by user."
@@ -138,13 +126,13 @@ perform_restore() {
   fi
 
   # copy files (preserve attributes)
-  for f in "${available_files[@]}"; do
-    local src="$backup_dir/$f"
+  printf '%s\n' "$available_files" | while IFS= read -r f; do
+    src="$backup_dir/$f"
     # avoid restoring manifest
-    if [[ "$f" == "manifest.txt" ]]; then continue; fi
-    local dest="$target_dir/$f"
-    mkdir -p -- "$(dirname "$dest")"
-    cp -a -- "$src" "$dest"
+    if [ "$f" = "manifest.txt" ]; then continue; fi
+    dest="$target_dir/$f"
+    mkdir -p "$(dirname "$dest")"
+    cp -p "$src" "$dest"
     echo "Restored: $dest"
   done
   echo "Restore complete."
@@ -177,7 +165,8 @@ main_menu() {
         else
           echo "Backup cancelled."
         fi
-        read -p "Press Enter to continue..."
+        echo "Press Enter to continue..."
+        read dummy
         ;;
       2)
         echo "Restore selected."
@@ -194,12 +183,14 @@ main_menu() {
             echo "Restore cancelled."
           fi
         fi
-        read -p "Press Enter to continue..."
+        echo "Press Enter to continue..."
+        read dummy
         ;;
       3)
         base=$(read_answer "Enter folder where backups are located" "$HOME")
         list_available_backups "$base"
-        read -p "Press Enter to continue..."
+        echo "Press Enter to continue..."
+        read dummy
         ;;
       4)
         echo "Goodbye."
@@ -211,6 +202,6 @@ main_menu() {
 }
 
 # If script is run directly, start menu. If sourced, export functions for reuse.
-if [[ "$0" == "$BASH_SOURCE" || "$0" == "$0" ]]; then
-  main_menu
-fi
+case "$(basename "$0")" in
+  backup_restore.sh) main_menu ;;
+esac
