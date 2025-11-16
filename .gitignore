@@ -22,14 +22,8 @@ build/
 venv/
 env/
 # Data files that are updated frequently by the device (keep local, never track)
-# These cause merge conflicts since device updates them every few minutes
-daily.json
-var/www/html/daily.json
-var/www/html/weekly.json
-var/www/html/monthly.json
-var/www/html/yearly.json
-var/www/html/data.json
-
-# Collected power data (local only)
-var/www/html/*.json
+# NOTE: Previously, JSON data files were kept local to avoid frequent merge
+# conflicts. These are now tracked in the repository so the dashboard JSON
+# files are available in GitHub. If you still want to ignore them, re-add
+# the specific patterns below.
 
