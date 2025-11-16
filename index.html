@@ -527,11 +527,36 @@
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 const json = await response.json();
-                // Update footer
+                // Update footer: prefer explicit timestamp fields, then HTTP headers, then fallback to now
                 const lastUpdatedEl = document.getElementById('footer-last-updated');
-                if (lastUpdatedEl && (json.last_updated || json.last_update)) {
-                    const lu = json.last_updated || json.last_update;
-                    lastUpdatedEl.textContent = `Last updated: ${new Date(lu).toLocaleString()}`;
+                if (lastUpdatedEl) {
+                    try {
+                        let lu = null;
+                        if (json && (json.last_updated || json.last_update)) {
+                            lu = json.last_updated || json.last_update;
+                        } else if (response && response.headers) {
+                            lu = response.headers.get('last-modified') || response.headers.get('date') || null;
+                        }
+                        // Fallback to current time when no usable value found
+                        if (!lu) lu = new Date().toISOString();
+
+                        // Normalize numeric timestamps (seconds or milliseconds) and string dates
+                        let parsed = new Date(lu);
+                        if (isNaN(parsed.getTime())) {
+                            // Try numeric epoch (10 or 13 digits)
+                            const s = String(lu).trim();
+                            if (/^\d+$/.test(s)) {
+                                parsed = new Date(Number(s) * (s.length === 10 ? 1000 : 1));
+                            } else {
+                                // Last resort: use now
+                                parsed = new Date();
+                            }
+                        }
+
+                        lastUpdatedEl.textContent = `Last updated: ${parsed.toLocaleString()}`;
+                    } catch (e) {
+                        lastUpdatedEl.textContent = 'Last updated: --';
+                    }
                 }
                 // Support both shapes: array or { data_points: [...] }
                 if (Array.isArray(json)) return json;
@@ -921,7 +946,7 @@
 
             // Solar generation: try to read if the dataset includes solar_kwh in the points
             const solarEl = document.getElementById('solar-today');
-            const solarRecentEl = document.getElementById('solar-recent');
+            const solarRecentEl = document.getElementById('solarGeneration-recent');
             if (solarEl) {
                 // look for a solar_kwh field in recent points or sum a solar_value if present
                 const solarValues = data.map(p => p.solar_kwh || p.solar || null).filter(Boolean);
@@ -1024,6 +1049,7 @@
                     ...p,
                     timestamp: ts,
                     value: val,
+                    y: val,
                     daily_energy
                 };
             }).filter(pt => pt.timestamp && (pt.value !== null && !isNaN(pt.value)) );
@@ -1241,6 +1267,23 @@
                 chartOptions.scales.y.min = 0.6;
                 chartOptions.scales.y.max = 1.0;
             }
+
+            // Simplify axis labels/legends for specific charts (match Solar charts style)
+            // Apply compact axis configuration for voltage, hourly energy and power factor
+            try {
+                const gridColor = cssGridColor.trim();
+                if (chartId.includes('voltageChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6, color: cssTextSecondary.trim() } };
+                    chartOptions.scales.y = { grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4, color: cssTextSecondary.trim() }, title: { display: false } };
+                } else if (chartId.includes('hourlyEnergyChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } };
+                    chartOptions.scales.y = { beginAtZero: true, grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
+                    chartType = 'bar';
+                } else if (chartId.includes('powerFactorChart')) {
+                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } };
+                    chartOptions.scales.y = { min: 0.6, max: 1.0, grid: { color: gridColor }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
+                }
+            } catch (e) { /* ignore theme errors */ }
 
             // Dataset defaults - use darker yellow border for bar outlines and rounded bars
             const dataset = {
