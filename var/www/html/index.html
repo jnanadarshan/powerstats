@@ -286,7 +286,7 @@
                         <div class="chart-header">
                             <div class="chart-title">
                                 <h3>Voltage (7d)</h3>
-                                <p>Voltage trend over the last 7 days (simulated)</p>
+                                <p>Voltage trend over the last 7 days</p>
                             </div>
                         </div>
                         <div class="chart-wrapper"><canvas id="voltageChart7"></canvas></div>
@@ -949,12 +949,17 @@
             const solarRecentEl = document.getElementById('solarGeneration-recent');
             if (solarEl) {
                 // look for a solar_kwh field in recent points or sum a solar_value if present
-                const solarValues = data.map(p => p.solar_kwh || p.solar || null).filter(Boolean);
-                if (solarValues.length) {
-                    const totalSolar = solarValues.reduce((s,v) => s + Number(v), 0);
+                // Prefer explicit numeric values (allow zero). Avoid `filter(Boolean)` which drops 0.
+                const solarValues = data.map(p => {
+                    if (typeof p.solar_kwh !== 'undefined' && p.solar_kwh !== null) return Number(p.solar_kwh);
+                    if (typeof p.solar !== 'undefined' && p.solar !== null) return Number(p.solar);
+                    if (typeof p.pv_kwh !== 'undefined' && p.pv_kwh !== null) return Number(p.pv_kwh);
+                    return null;
+                }).filter(v => v !== null && !isNaN(v));
+                const totalSolar = solarValues.reduce((s,v) => s + Number(v), 0);
+                if (solarValues.length > 0) {
                     solarEl.innerHTML = `${totalSolar.toFixed(2)}<span class="unit">kWh</span>`;
                 } else {
-                    // if not present, show estimated zero or keep placeholder
                     solarEl.innerHTML = `--<span class="unit">kWh</span>`;
                 }
                 // populate the small recent-value indicator with the most recent solar datapoint (search from the end)
@@ -1202,7 +1207,7 @@
             let lastPowerFactor = null;
             const avgVal = data.reduce((s,p)=>s+p.y,0)/Math.max(1, data.length);
 
-            if (chartId === 'voltageChartToday') {
+            if (chartId.includes('voltageChart')) {
                 const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
                 // compute a synthetic voltage series for display
                 const voltageSeries = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number((230 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5).toFixed(2)) }));
@@ -1249,7 +1254,7 @@
                 // Attach breach annotation data to chart options via plugin config later
                 chartOptions.plugins = chartOptions.plugins || {};
                 chartOptions.plugins.breach = { breaches, UL, LL };
-            } else if (chartId === 'hourlyEnergyChartToday') {
+            } else if (chartId.includes('hourlyEnergyChart')) {
                 const hourlyMap = {};
                 data.forEach(dp => {
                     const key = new Date(dp.timestamp).toISOString().slice(0,13) + ':00:00Z';
@@ -1257,10 +1262,10 @@
                 });
                 chartData = Object.entries(hourlyMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
                 chartType = 'bar';
-            } else if (chartId === 'livePowerChartToday') {
+            } else if (chartId.includes('livePowerChart')) {
                 chartData = data.map(dp => ({ x: new Date(dp.timestamp), y: dp.value }));
                 if (data.length) lastLivePower = data[data.length - 1].value;
-            } else if (chartId === 'powerFactorChartToday') {
+            } else if (chartId.includes('powerFactorChart')) {
                 const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
                 chartData = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number(Math.max(0.6, Math.min(1.0, 0.95 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 0.02 + Math.cos(idx/15) * 0.005)).toFixed(3)) }));
                 if (chartData.length) lastPowerFactor = chartData[chartData.length - 1].y;
@@ -1428,12 +1433,15 @@
         function renderHourlyEnergy7(data) { renderTodayChart('hourlyEnergyChart7', data); }
         function renderLivePower7(data) { renderTodayChart('livePowerChart7', data); }
         function renderPowerFactor7(data) { renderTodayChart('powerFactorChart7', data); }
-        function renderSolarLine7(data) { renderSolarLineToday(data); }
-        function renderSolarByHour7(data) { renderSolarByHourToday(data); }
+        function renderSolarLine7(data) { renderSolarLineToday('solarGenerationChart7', data); }
+        function renderSolarByHour7(data) { renderSolarByHourToday('solarByHourChart7', data); }
 
         // --- SOLAR CHARTS FOR TODAY ---
-        function renderSolarLineToday(data) {
-            const chartId = 'solarGenerationChartToday';
+        function renderSolarLineToday(chartId, data) {
+            if (typeof chartId !== 'string') {
+                data = chartId;
+                chartId = 'solarGenerationChartToday';
+            }
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
             if (!canvas) return;
@@ -1481,8 +1489,11 @@
             } catch (e) { /* ignore */ }
         }
 
-        function renderSolarByHourToday(data) {
-            const chartId = 'solarByHourChartToday';
+        function renderSolarByHourToday(chartId, data) {
+            if (typeof chartId !== 'string') {
+                data = chartId;
+                chartId = 'solarByHourChartToday';
+            }
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
             if (!canvas) return;
@@ -1521,7 +1532,21 @@
                 data: { datasets: [dataset] },
                 options: {
                     ...commonChartOptions,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} kWh` } } },
+                    plugins: { 
+                        legend: { display: false }, 
+                        tooltip: { callbacks: { 
+                            label: function(ctx) {
+                                // ctx.parsed.y is the numeric y value in Chart.js v3+; fallback to ctx.raw.y or ctx.raw
+                                let v = 0;
+                                try {
+                                    if (ctx.parsed && typeof ctx.parsed.y !== 'undefined') v = ctx.parsed.y;
+                                    else if (ctx.raw && typeof ctx.raw === 'number') v = ctx.raw;
+                                    else if (ctx.raw && typeof ctx.raw.y !== 'undefined') v = ctx.raw.y;
+                                } catch (e) { v = 0; }
+                                return `${Number(v).toFixed(3)} kWh`;
+                            }
+                        } } 
+                    },
                     scales: {
                         x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
                         y: { beginAtZero: true, grid: { color: cssGridColorBar.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 5 }, title: { display: false } }
