@@ -1,485 +1,5 @@
 [
     {
-        "timestamp": "2025-11-16T19:01:03.641375",
-        "daily_energy": 364.0,
-        "power": 364.0,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 236.5
-    },
-    {
-        "timestamp": "2025-11-16T19:02:03.592469",
-        "daily_energy": 368.4,
-        "power": 368.4,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 234.7
-    },
-    {
-        "timestamp": "2025-11-16T19:03:03.565706",
-        "daily_energy": 363.1,
-        "power": 363.1,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 235.5
-    },
-    {
-        "timestamp": "2025-11-16T19:04:03.529981",
-        "daily_energy": 363.4,
-        "power": 363.4,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 235.8
-    },
-    {
-        "timestamp": "2025-11-16T19:05:03.497478",
-        "daily_energy": 370.3,
-        "power": 370.3,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 236.1
-    },
-    {
-        "timestamp": "2025-11-16T19:06:03.458243",
-        "daily_energy": 360.5,
-        "power": 360.5,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 237.5
-    },
-    {
-        "timestamp": "2025-11-16T19:07:04.416470",
-        "daily_energy": 354.7,
-        "power": 354.7,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 236.8
-    },
-    {
-        "timestamp": "2025-11-16T19:08:04.376244",
-        "daily_energy": 357.4,
-        "power": 357.4,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 238.3
-    },
-    {
-        "timestamp": "2025-11-16T19:09:04.338882",
-        "daily_energy": 370.6,
-        "power": 370.6,
-        "power_factor": 5.5,
-        "solar": 21.2,
-        "voltage": 234.8
-    },
-    {
-        "timestamp": "2025-11-16T19:10:04.306324",
-        "daily_energy": 362.6,
-        "power": 362.6,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 237.2
-    },
-    {
-        "timestamp": "2025-11-16T19:11:04.259314",
-        "daily_energy": 389.6,
-        "power": 389.6,
-        "power_factor": 6.3,
-        "solar": 21.2,
-        "voltage": 237.4
-    },
-    {
-        "timestamp": "2025-11-16T19:12:04.218938",
-        "daily_energy": 400.6,
-        "power": 400.6,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 237.1
-    },
-    {
-        "timestamp": "2025-11-16T19:13:04.192000",
-        "daily_energy": 421.9,
-        "power": 421.9,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 236.6
-    },
-    {
-        "timestamp": "2025-11-16T19:14:04.160402",
-        "daily_energy": 408.8,
-        "power": 408.8,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 236.4
-    },
-    {
-        "timestamp": "2025-11-16T19:15:04.119875",
-        "daily_energy": 424.4,
-        "power": 424.4,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 233.2
-    },
-    {
-        "timestamp": "2025-11-16T19:16:04.090870",
-        "daily_energy": 422.0,
-        "power": 422.0,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 235.5
-    },
-    {
-        "timestamp": "2025-11-16T19:17:04.064603",
-        "daily_energy": 427.0,
-        "power": 427.0,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 236.0
-    },
-    {
-        "timestamp": "2025-11-16T19:18:04.027343",
-        "daily_energy": 365.9,
-        "power": 365.9,
-        "power_factor": 5.4,
-        "solar": 21.2,
-        "voltage": 234.8
-    },
-    {
-        "timestamp": "2025-11-16T19:19:04.001198",
-        "daily_energy": 398.1,
-        "power": 398.1,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 235.7
-    },
-    {
-        "timestamp": "2025-11-16T19:20:03.972339",
-        "daily_energy": 407.2,
-        "power": 407.2,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 236.4
-    },
-    {
-        "timestamp": "2025-11-16T19:21:03.945482",
-        "daily_energy": 406.3,
-        "power": 406.3,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 236.9
-    },
-    {
-        "timestamp": "2025-11-16T19:22:03.910540",
-        "daily_energy": 415.7,
-        "power": 415.7,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 234.2
-    },
-    {
-        "timestamp": "2025-11-16T19:23:03.872401",
-        "daily_energy": 405.3,
-        "power": 405.3,
-        "power_factor": 6.3,
-        "solar": 21.2,
-        "voltage": 235.9
-    },
-    {
-        "timestamp": "2025-11-16T19:24:03.850233",
-        "daily_energy": 416.1,
-        "power": 416.1,
-        "power_factor": 6.5,
-        "solar": 21.2,
-        "voltage": 236.8
-    },
-    {
-        "timestamp": "2025-11-16T19:25:03.826717",
-        "daily_energy": 401.5,
-        "power": 401.5,
-        "power_factor": 6.7,
-        "solar": 21.2,
-        "voltage": 236.2
-    },
-    {
-        "timestamp": "2025-11-16T19:26:03.799675",
-        "daily_energy": 409.0,
-        "power": 409.0,
-        "power_factor": 5.9,
-        "solar": 21.2,
-        "voltage": 233.3
-    },
-    {
-        "timestamp": "2025-11-16T19:27:03.762091",
-        "daily_energy": 415.6,
-        "power": 415.6,
-        "power_factor": 6.5,
-        "solar": 21.2,
-        "voltage": 236.1
-    },
-    {
-        "timestamp": "2025-11-16T19:28:03.735581",
-        "daily_energy": 396.1,
-        "power": 396.1,
-        "power_factor": 6.3,
-        "solar": 21.2,
-        "voltage": 237.6
-    },
-    {
-        "timestamp": "2025-11-16T19:29:03.704552",
-        "daily_energy": 403.5,
-        "power": 403.5,
-        "power_factor": 6.8,
-        "solar": 21.2,
-        "voltage": 236.9
-    },
-    {
-        "timestamp": "2025-11-16T19:30:03.692004",
-        "daily_energy": 405.7,
-        "power": 405.7,
-        "power_factor": 6.6,
-        "solar": 21.2,
-        "voltage": 237.4
-    },
-    {
-        "timestamp": "2025-11-16T19:31:03.669062",
-        "daily_energy": 413.0,
-        "power": 413.0,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 234.5
-    },
-    {
-        "timestamp": "2025-11-16T19:32:03.642544",
-        "daily_energy": 455.1,
-        "power": 455.1,
-        "power_factor": 6.5,
-        "solar": 21.2,
-        "voltage": 236.8
-    },
-    {
-        "timestamp": "2025-11-16T19:33:03.602362",
-        "daily_energy": 417.4,
-        "power": 417.4,
-        "power_factor": 6.4,
-        "solar": 21.2,
-        "voltage": 237.7
-    },
-    {
-        "timestamp": "2025-11-16T19:34:03.569618",
-        "daily_energy": 421.5,
-        "power": 421.5,
-        "power_factor": 5.5,
-        "solar": 21.2,
-        "voltage": 237.0
-    },
-    {
-        "timestamp": "2025-11-16T19:35:03.542743",
-        "daily_energy": 410.9,
-        "power": 410.9,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 239.6
-    },
-    {
-        "timestamp": "2025-11-16T19:36:03.512781",
-        "daily_energy": 421.6,
-        "power": 421.6,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 236.8
-    },
-    {
-        "timestamp": "2025-11-16T19:37:03.471957",
-        "daily_energy": 415.8,
-        "power": 415.8,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 239.4
-    },
-    {
-        "timestamp": "2025-11-16T19:38:03.453055",
-        "daily_energy": 411.1,
-        "power": 411.1,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 237.9
-    },
-    {
-        "timestamp": "2025-11-16T19:39:04.420593",
-        "daily_energy": 414.4,
-        "power": 414.4,
-        "power_factor": 5.8,
-        "solar": 21.2,
-        "voltage": 234.4
-    },
-    {
-        "timestamp": "2025-11-16T19:40:04.394079",
-        "daily_energy": 382.4,
-        "power": 382.4,
-        "power_factor": 5.6,
-        "solar": 21.2,
-        "voltage": 236.6
-    },
-    {
-        "timestamp": "2025-11-16T19:41:04.384072",
-        "daily_energy": 431.8,
-        "power": 431.8,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 236.9
-    },
-    {
-        "timestamp": "2025-11-16T19:42:04.370958",
-        "daily_energy": 408.9,
-        "power": 408.9,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 238.3
-    },
-    {
-        "timestamp": "2025-11-16T19:43:04.332334",
-        "daily_energy": 404.7,
-        "power": 404.7,
-        "power_factor": 5.6,
-        "solar": 21.2,
-        "voltage": 232.2
-    },
-    {
-        "timestamp": "2025-11-16T19:44:04.320767",
-        "daily_energy": 408.7,
-        "power": 408.7,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 231.5
-    },
-    {
-        "timestamp": "2025-11-16T19:45:04.304106",
-        "daily_energy": 417.8,
-        "power": 417.8,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 229.4
-    },
-    {
-        "timestamp": "2025-11-16T19:46:04.282026",
-        "daily_energy": 414.3,
-        "power": 414.3,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 234.3
-    },
-    {
-        "timestamp": "2025-11-16T19:47:04.256897",
-        "daily_energy": 403.9,
-        "power": 403.9,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 233.9
-    },
-    {
-        "timestamp": "2025-11-16T19:48:04.248707",
-        "daily_energy": 401.7,
-        "power": 401.7,
-        "power_factor": 6.3,
-        "solar": 21.2,
-        "voltage": 235.7
-    },
-    {
-        "timestamp": "2025-11-16T19:49:04.232174",
-        "daily_energy": 413.2,
-        "power": 413.2,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 237.5
-    },
-    {
-        "timestamp": "2025-11-16T19:50:04.210659",
-        "daily_energy": 404.2,
-        "power": 404.2,
-        "power_factor": 6.3,
-        "solar": 21.2,
-        "voltage": 235.2
-    },
-    {
-        "timestamp": "2025-11-16T19:51:04.190634",
-        "daily_energy": 423.0,
-        "power": 423.0,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 236.2
-    },
-    {
-        "timestamp": "2025-11-16T19:52:04.166280",
-        "daily_energy": 416.8,
-        "power": 416.8,
-        "power_factor": 6.2,
-        "solar": 21.2,
-        "voltage": 235.7
-    },
-    {
-        "timestamp": "2025-11-16T19:53:04.145910",
-        "daily_energy": 390.0,
-        "power": 390.0,
-        "power_factor": 5.7,
-        "solar": 21.2,
-        "voltage": 234.6
-    },
-    {
-        "timestamp": "2025-11-16T19:54:04.131783",
-        "daily_energy": 439.7,
-        "power": 439.7,
-        "power_factor": 5.8,
-        "solar": 21.2,
-        "voltage": 237.2
-    },
-    {
-        "timestamp": "2025-11-16T19:55:04.104600",
-        "daily_energy": 443.0,
-        "power": 443.0,
-        "power_factor": 5.6,
-        "solar": 21.2,
-        "voltage": 234.8
-    },
-    {
-        "timestamp": "2025-11-16T19:56:04.086030",
-        "daily_energy": 425.1,
-        "power": 425.1,
-        "power_factor": 5.8,
-        "solar": 21.2,
-        "voltage": 237.6
-    },
-    {
-        "timestamp": "2025-11-16T19:57:04.068493",
-        "daily_energy": 428.9,
-        "power": 428.9,
-        "power_factor": 6.0,
-        "solar": 21.2,
-        "voltage": 238.3
-    },
-    {
-        "timestamp": "2025-11-16T19:58:04.053198",
-        "daily_energy": 436.5,
-        "power": 436.5,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 240.8
-    },
-    {
-        "timestamp": "2025-11-16T19:59:04.035968",
-        "daily_energy": 487.1,
-        "power": 487.1,
-        "power_factor": 6.1,
-        "solar": 21.2,
-        "voltage": 236.5
-    },
-    {
-        "timestamp": "2025-11-16T20:00:06.551117",
-        "daily_energy": 485.3,
-        "power": 485.3,
-        "power_factor": 6.4,
-        "solar": 21.2,
-        "voltage": 234.2
-    },
-    {
         "timestamp": "2025-11-16T20:01:03.688949",
         "daily_energy": 481.3,
         "power": 481.3,
@@ -11518,5 +11038,485 @@
         "power_factor": 6.2,
         "solar": 20.1,
         "voltage": 236.4
+    },
+    {
+        "timestamp": "2025-11-17T19:01:04.403200",
+        "daily_energy": 1981.3,
+        "power": 1981.3,
+        "power_factor": 6.1,
+        "solar": 20.1,
+        "voltage": 228.0
+    },
+    {
+        "timestamp": "2025-11-17T19:02:03.873122",
+        "daily_energy": 502.7,
+        "power": 502.7,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 235.2
+    },
+    {
+        "timestamp": "2025-11-17T19:03:04.293094",
+        "daily_energy": 516.2,
+        "power": 516.2,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 235.8
+    },
+    {
+        "timestamp": "2025-11-17T19:04:03.764131",
+        "daily_energy": 509.8,
+        "power": 509.8,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 236.1
+    },
+    {
+        "timestamp": "2025-11-17T19:05:04.188948",
+        "daily_energy": 509.0,
+        "power": 509.0,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 236.2
+    },
+    {
+        "timestamp": "2025-11-17T19:06:03.679637",
+        "daily_energy": 519.7,
+        "power": 519.7,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 235.9
+    },
+    {
+        "timestamp": "2025-11-17T19:07:04.099055",
+        "daily_energy": 504.1,
+        "power": 504.1,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 236.0
+    },
+    {
+        "timestamp": "2025-11-17T19:08:03.551327",
+        "daily_energy": 485.1,
+        "power": 485.1,
+        "power_factor": 6.3,
+        "solar": 20.1,
+        "voltage": 236.7
+    },
+    {
+        "timestamp": "2025-11-17T19:09:04.019621",
+        "daily_energy": 496.2,
+        "power": 496.2,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 236.2
+    },
+    {
+        "timestamp": "2025-11-17T19:10:03.453435",
+        "daily_energy": 1642.7,
+        "power": 1642.7,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 221.5
+    },
+    {
+        "timestamp": "2025-11-17T19:11:03.947978",
+        "daily_energy": 498.6,
+        "power": 498.6,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 226.9
+    },
+    {
+        "timestamp": "2025-11-17T19:12:04.387945",
+        "daily_energy": 506.0,
+        "power": 506.0,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 227.9
+    },
+    {
+        "timestamp": "2025-11-17T19:13:03.856451",
+        "daily_energy": 514.7,
+        "power": 514.7,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 227.0
+    },
+    {
+        "timestamp": "2025-11-17T19:14:04.268209",
+        "daily_energy": 493.9,
+        "power": 493.9,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 225.7
+    },
+    {
+        "timestamp": "2025-11-17T19:15:03.776287",
+        "daily_energy": 505.0,
+        "power": 505.0,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 228.4
+    },
+    {
+        "timestamp": "2025-11-17T19:16:04.203695",
+        "daily_energy": 497.2,
+        "power": 497.2,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 226.8
+    },
+    {
+        "timestamp": "2025-11-17T19:17:03.674297",
+        "daily_energy": 491.5,
+        "power": 491.5,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 227.0
+    },
+    {
+        "timestamp": "2025-11-17T19:18:04.098917",
+        "daily_energy": 515.4,
+        "power": 515.4,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 226.4
+    },
+    {
+        "timestamp": "2025-11-17T19:19:03.542771",
+        "daily_energy": 526.6,
+        "power": 526.6,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 224.8
+    },
+    {
+        "timestamp": "2025-11-17T19:20:04.037690",
+        "daily_energy": 529.9,
+        "power": 529.9,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 225.0
+    },
+    {
+        "timestamp": "2025-11-17T19:21:03.612092",
+        "daily_energy": 568.9,
+        "power": 568.9,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 223.0
+    },
+    {
+        "timestamp": "2025-11-17T19:22:04.144417",
+        "daily_energy": 538.5,
+        "power": 538.5,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 216.7
+    },
+    {
+        "timestamp": "2025-11-17T19:23:03.625513",
+        "daily_energy": 560.9,
+        "power": 560.9,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 221.5
+    },
+    {
+        "timestamp": "2025-11-17T19:24:04.109769",
+        "daily_energy": 555.0,
+        "power": 555.0,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 221.7
+    },
+    {
+        "timestamp": "2025-11-17T19:25:03.636181",
+        "daily_energy": 542.5,
+        "power": 542.5,
+        "power_factor": 9.9,
+        "solar": 20.1,
+        "voltage": 221.0
+    },
+    {
+        "timestamp": "2025-11-17T19:26:04.152567",
+        "daily_energy": 554.6,
+        "power": 554.6,
+        "power_factor": 7.9,
+        "solar": 20.1,
+        "voltage": 229.9
+    },
+    {
+        "timestamp": "2025-11-17T19:27:03.746573",
+        "daily_energy": 545.3,
+        "power": 545.3,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 228.2
+    },
+    {
+        "timestamp": "2025-11-17T19:28:04.174890",
+        "daily_energy": 552.0,
+        "power": 552.0,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 227.8
+    },
+    {
+        "timestamp": "2025-11-17T19:29:03.686771",
+        "daily_energy": 551.5,
+        "power": 551.5,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 233.2
+    },
+    {
+        "timestamp": "2025-11-17T19:30:04.182732",
+        "daily_energy": 554.8,
+        "power": 554.8,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 233.2
+    },
+    {
+        "timestamp": "2025-11-17T19:31:03.772772",
+        "daily_energy": 557.0,
+        "power": 557.0,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 235.3
+    },
+    {
+        "timestamp": "2025-11-17T19:32:04.385196",
+        "daily_energy": 577.8,
+        "power": 577.8,
+        "power_factor": 7.8,
+        "solar": 20.1,
+        "voltage": 234.9
+    },
+    {
+        "timestamp": "2025-11-17T19:33:03.851250",
+        "daily_energy": 559.8,
+        "power": 559.8,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 235.0
+    },
+    {
+        "timestamp": "2025-11-17T19:34:04.273481",
+        "daily_energy": 567.2,
+        "power": 567.2,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 236.2
+    },
+    {
+        "timestamp": "2025-11-17T19:35:03.777334",
+        "daily_energy": 551.0,
+        "power": 551.0,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 234.3
+    },
+    {
+        "timestamp": "2025-11-17T19:36:04.217003",
+        "daily_energy": 562.7,
+        "power": 562.7,
+        "power_factor": 7.9,
+        "solar": 20.1,
+        "voltage": 234.6
+    },
+    {
+        "timestamp": "2025-11-17T19:37:03.703195",
+        "daily_energy": 521.6,
+        "power": 521.6,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 235.5
+    },
+    {
+        "timestamp": "2025-11-17T19:38:04.130920",
+        "daily_energy": 534.2,
+        "power": 534.2,
+        "power_factor": 7.1,
+        "solar": 20.1,
+        "voltage": 236.6
+    },
+    {
+        "timestamp": "2025-11-17T19:39:03.570148",
+        "daily_energy": 510.3,
+        "power": 510.3,
+        "power_factor": 7.1,
+        "solar": 20.1,
+        "voltage": 236.9
+    },
+    {
+        "timestamp": "2025-11-17T19:40:04.051155",
+        "daily_energy": 534.7,
+        "power": 534.7,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 236.5
+    },
+    {
+        "timestamp": "2025-11-17T19:41:03.486180",
+        "daily_energy": 531.2,
+        "power": 531.2,
+        "power_factor": 7.1,
+        "solar": 20.1,
+        "voltage": 237.0
+    },
+    {
+        "timestamp": "2025-11-17T19:42:03.981354",
+        "daily_energy": 538.6,
+        "power": 538.6,
+        "power_factor": 7.1,
+        "solar": 20.1,
+        "voltage": 237.8
+    },
+    {
+        "timestamp": "2025-11-17T19:43:04.412852",
+        "daily_energy": 536.4,
+        "power": 536.4,
+        "power_factor": 7.1,
+        "solar": 20.1,
+        "voltage": 236.7
+    },
+    {
+        "timestamp": "2025-11-17T19:44:03.881883",
+        "daily_energy": 530.1,
+        "power": 530.1,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 233.5
+    },
+    {
+        "timestamp": "2025-11-17T19:45:04.336191",
+        "daily_energy": 532.7,
+        "power": 532.7,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 233.6
+    },
+    {
+        "timestamp": "2025-11-17T19:46:03.829874",
+        "daily_energy": 543.2,
+        "power": 543.2,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 233.5
+    },
+    {
+        "timestamp": "2025-11-17T19:47:04.264674",
+        "daily_energy": 533.7,
+        "power": 533.7,
+        "power_factor": 7.0,
+        "solar": 20.1,
+        "voltage": 234.3
+    },
+    {
+        "timestamp": "2025-11-17T19:48:03.770017",
+        "daily_energy": 535.2,
+        "power": 535.2,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 236.6
+    },
+    {
+        "timestamp": "2025-11-17T19:49:04.217728",
+        "daily_energy": 525.7,
+        "power": 525.7,
+        "power_factor": 6.4,
+        "solar": 20.1,
+        "voltage": 235.5
+    },
+    {
+        "timestamp": "2025-11-17T19:50:03.700806",
+        "daily_energy": 526.6,
+        "power": 526.6,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 235.0
+    },
+    {
+        "timestamp": "2025-11-17T19:51:04.199233",
+        "daily_energy": 531.0,
+        "power": 531.0,
+        "power_factor": 6.6,
+        "solar": 20.1,
+        "voltage": 237.4
+    },
+    {
+        "timestamp": "2025-11-17T19:52:03.648023",
+        "daily_energy": 526.2,
+        "power": 526.2,
+        "power_factor": 6.6,
+        "solar": 20.1,
+        "voltage": 235.5
+    },
+    {
+        "timestamp": "2025-11-17T19:53:04.128941",
+        "daily_energy": 526.1,
+        "power": 526.1,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 235.4
+    },
+    {
+        "timestamp": "2025-11-17T19:54:03.562529",
+        "daily_energy": 531.9,
+        "power": 531.9,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 233.3
+    },
+    {
+        "timestamp": "2025-11-17T19:55:04.036195",
+        "daily_energy": 531.9,
+        "power": 531.9,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 233.4
+    },
+    {
+        "timestamp": "2025-11-17T19:56:03.458750",
+        "daily_energy": 478.0,
+        "power": 478.0,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 236.9
+    },
+    {
+        "timestamp": "2025-11-17T19:57:03.959744",
+        "daily_energy": 467.1,
+        "power": 467.1,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 234.6
+    },
+    {
+        "timestamp": "2025-11-17T19:58:04.382608",
+        "daily_energy": 474.1,
+        "power": 474.1,
+        "power_factor": 6.5,
+        "solar": 20.1,
+        "voltage": 234.2
+    },
+    {
+        "timestamp": "2025-11-17T19:59:03.869433",
+        "daily_energy": 474.7,
+        "power": 474.7,
+        "power_factor": 6.4,
+        "solar": 20.1,
+        "voltage": 235.2
+    },
+    {
+        "timestamp": "2025-11-17T20:00:06.844387",
+        "daily_energy": 470.7,
+        "power": 470.7,
+        "power_factor": 6.4,
+        "solar": 20.1,
+        "voltage": 236.2
     }
 ]
