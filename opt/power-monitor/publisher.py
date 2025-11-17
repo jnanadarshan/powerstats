@@ -125,10 +125,14 @@ class GitHubPublisher:
         # NOTE: weekly.json contains granular data (7-day retention), not aggregated summaries
         files_to_publish = [
             ('index.html', 'index.html', f'Update dashboard - {timestamp}'),
+            ('daily.json', 'daily.json', f'Update daily data - {timestamp}'),
             ('weekly.json', 'weekly.json', f'Update weekly granular data - {timestamp}'),
             ('monthly.json', 'monthly.json', f'Update monthly data - {timestamp}'),
             ('yearly.json', 'yearly.json', f'Update yearly data - {timestamp}')
         ]
+        # WARNING: Including `daily.json` will create very frequent commits
+        # because `daily.json` is updated often (potentially every minute).
+        # Be aware of increased GitHub API usage and repository churn.
         
         success = True
         for local_name, remote_name, message in files_to_publish:
@@ -192,8 +196,10 @@ def main():
             logger.error("Repository verification failed")
             return 1
         
-        # Publish dashboard
-        if publisher.publish_dashboard(config.web_root):
+        # Publish dashboard - use data_dir to ensure JSON files are taken from
+        # the configured data directory (often `/var/www/html`) rather than
+        # the repository or current working directory.
+        if publisher.publish_dashboard(config.data_dir):
             logger.info("Publishing completed successfully")
             return 0
         else:

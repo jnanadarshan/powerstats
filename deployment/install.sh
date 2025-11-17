@@ -88,7 +88,18 @@ chmod +x /opt/power-monitor/collector.py
 chmod +x /opt/power-monitor/publisher.py
 chmod +x /opt/power-monitor/health.py
 chmod 755 /opt/power-monitor
-chmod 755 /var/www/html
+
+# Set ownership and permissions for /var/www/html
+# Root needs write access (for collector), lighttpd needs read access (for web server)
+if id -u lighttpd > /dev/null 2>&1; then
+    chown -R root:lighttpd /var/www/html
+    chmod 775 /var/www/html
+    echo "Set /var/www/html ownership to root:lighttpd with 775 permissions"
+else
+    chmod 755 /var/www/html
+    echo "lighttpd user not found, using default permissions"
+fi
+
 chmod 644 /opt/power-monitor/templates/dashboard.html
 chmod 644 /var/www/html/admin_dashboard.html
 

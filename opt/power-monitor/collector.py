@@ -170,12 +170,22 @@ class DataManager:
             os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
             with open(self.data_file, 'w') as f:
                 json.dump([], f)
+            # Set permissions so web server can read the file
+            try:
+                os.chmod(self.data_file, 0o664)  # rw-rw-r--
+            except OSError:
+                pass  # If chmod fails, continue anyway
     
     def _write_data(self, data: List[Dict]):
         """Write data to file atomically"""
         temp_file = self.data_file + '.tmp'
         with open(temp_file, 'w') as f:
             json.dump(data, f, indent=4)
+        # Set permissions on temp file before replacing (readable by web server)
+        try:
+            os.chmod(temp_file, 0o664)  # rw-rw-r--
+        except OSError:
+            pass  # If chmod fails, continue anyway
         os.replace(temp_file, self.data_file)
     
     def load_data(self) -> List[Dict[str, Any]]:

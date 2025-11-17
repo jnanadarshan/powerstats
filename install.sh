@@ -268,7 +268,18 @@ log_info "Setting permissions..."
 chmod +x /opt/power-monitor/*.py
 chmod +x /var/www/html/admin.cgi
 chmod 755 /opt/power-monitor
-chmod 755 /var/www/html
+
+# Set ownership and permissions for /var/www/html
+# Root needs write access (for collector), lighttpd needs read access (for web server)
+if id -u lighttpd > /dev/null 2>&1; then
+    chown -R root:lighttpd /var/www/html
+    chmod 775 /var/www/html
+    log_info "Set /var/www/html ownership to root:lighttpd with 775 permissions"
+else
+    chmod 755 /var/www/html
+    log_warn "lighttpd user not found, using default permissions"
+fi
+
 chmod 644 /opt/power-monitor/templates/dashboard.html
 if [ -f /var/www/html/admin_dashboard.html ]; then
     chmod 644 /var/www/html/admin_dashboard.html
@@ -784,6 +795,11 @@ log_info "${YELLOW}━━━━━━━━━━━━━━━━━━━━�
 log_info "Collecting initial data (this may take a moment)..."
 if /usr/bin/python3 /opt/power-monitor/collector.py >> /var/log/power-monitor-collector.log 2>&1; then
     log_success "Initial data collection completed"
+    # Ensure JSON files are readable by lighttpd
+    if id -u lighttpd > /dev/null 2>&1; then
+        chown root:lighttpd /var/www/html/*.json 2>/dev/null || true
+        chmod 664 /var/www/html/*.json 2>/dev/null || true
+    fi
 else
     COLLECTOR_EXIT=$?
     log_warn "Initial collection had issues (exit code: $COLLECTOR_EXIT)"
