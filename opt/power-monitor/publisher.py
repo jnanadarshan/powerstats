@@ -124,11 +124,11 @@ class GitHubPublisher:
         # NOTE: daily.json is kept local-only to prevent merge conflicts
         # NOTE: weekly.json contains granular data (7-day retention), not aggregated summaries
         files_to_publish = [
-            ('index.html', 'index.html', f'Update dashboard - {timestamp}'),
-            ('daily.json', 'daily.json', f'Update daily data - {timestamp}'),
-            ('weekly.json', 'weekly.json', f'Update weekly granular data - {timestamp}'),
-            ('monthly.json', 'monthly.json', f'Update monthly data - {timestamp}'),
-            ('yearly.json', 'yearly.json', f'Update yearly data - {timestamp}')
+            ('index.html', 'var/www/html/index.html', f'Update dashboard - {timestamp}'),
+            ('daily.json', 'var/www/html/daily.json', f'Update daily data - {timestamp}'),
+            ('weekly.json', 'var/www/html/weekly.json', f'Update weekly granular data - {timestamp}'),
+            ('monthly.json', 'var/www/html/monthly.json', f'Update monthly data - {timestamp}'),
+            ('yearly.json', 'var/www/html/yearly.json', f'Update yearly data - {timestamp}')
         ]
         # WARNING: Including `daily.json` will create very frequent commits
         # because `daily.json` is updated often (potentially every minute).
