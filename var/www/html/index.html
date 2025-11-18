@@ -957,21 +957,25 @@
                     return null;
                 }).filter(v => v !== null && !isNaN(v));
                 const totalSolar = solarValues.reduce((s,v) => s + Number(v), 0);
-                if (solarValues.length > 0) {
+                // Determine most recent solar sample (if available)
+                let lastSolar = null;
+                for (let i = data.length - 1; i >= 0; i--) {
+                    const p = data[i];
+                    if (p && (p.solar_kwh !== undefined && p.solar_kwh !== null)) { lastSolar = Number(p.solar_kwh); break; }
+                    if (p && (p.solar !== undefined && p.solar !== null)) { lastSolar = Number(p.solar); break; }
+                    if (p && (p.pv_kwh !== undefined && p.pv_kwh !== null)) { lastSolar = Number(p.pv_kwh); break; }
+                }
+                // Show the same value as the Solar Generation chart's recent indicator when possible
+                if (lastSolar !== null && !isNaN(lastSolar)) {
+                    solarEl.innerHTML = `${Number(lastSolar).toFixed(2)}<span class="unit">kWh</span>`;
+                } else if (solarValues.length > 0) {
                     solarEl.innerHTML = `${totalSolar.toFixed(2)}<span class="unit">kWh</span>`;
                 } else {
                     solarEl.innerHTML = `--<span class="unit">kWh</span>`;
                 }
                 // populate the small recent-value indicator with the most recent solar datapoint (search from the end)
                 if (solarRecentEl) {
-                    let lastSolar = null;
-                    for (let i = data.length - 1; i >= 0; i--) {
-                        const p = data[i];
-                        if (p && (p.solar_kwh !== undefined && p.solar_kwh !== null)) { lastSolar = p.solar_kwh; break; }
-                        if (p && (p.solar !== undefined && p.solar !== null)) { lastSolar = p.solar; break; }
-                    }
-                    if (lastSolar !== null) {
-                        // show the most recent value, compact (no unit in main stat)
+                    if (lastSolar !== null && !isNaN(lastSolar)) {
                         solarRecentEl.textContent = `${Number(lastSolar).toFixed(2)}kWh`;
                     } else {
                         solarRecentEl.textContent = '--';
