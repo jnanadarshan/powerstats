@@ -41,6 +41,7 @@ print_header() {
 
 # Map of installed files -> repo locations (POSIX-safe newline-separated list)
 FILE_LIST='/opt/power-monitor/config.json|config.json
+/var/www/html/theme.css|var/www/html/theme.css
 /var/www/html/thresholds.json|var/www/html/thresholds.json
 /var/www/html/daily.json|var/www/html/daily.json
 /var/www/html/weekly.json|var/www/html/weekly.json

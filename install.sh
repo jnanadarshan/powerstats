@@ -236,9 +236,17 @@ log_info "Copying application files..."
 cp "$SCRIPT_DIR"/opt/power-monitor/*.py /opt/power-monitor/
 cp "$SCRIPT_DIR"/opt/power-monitor/templates/dashboard.html /opt/power-monitor/templates/
 cp "$SCRIPT_DIR"/var/www/html/index.html /var/www/html/
+cp "$SCRIPT_DIR"/var/www/html/theme.css /var/www/html/
 cp "$SCRIPT_DIR"/var/www/html/admin.cgi /var/www/html/
 if [ -f "$SCRIPT_DIR"/var/www/html/admin_dashboard.html ]; then
     cp "$SCRIPT_DIR"/var/www/html/admin_dashboard.html /var/www/html/
+fi
+if [ -f "$SCRIPT_DIR"/var/www/html/health.cgi ]; then
+    cp "$SCRIPT_DIR"/var/www/html/health.cgi /var/www/html/
+    chmod +x /var/www/html/health.cgi
+fi
+if [ -f "$SCRIPT_DIR"/var/www/html/HELP_CONSOLIDATED.md ]; then
+    cp "$SCRIPT_DIR"/var/www/html/HELP_CONSOLIDATED.md /var/www/html/
 fi
 
 # Copy config.json to application directory

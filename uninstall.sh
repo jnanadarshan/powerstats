@@ -129,7 +129,11 @@ fi
 if [ -d "/var/www/html" ]; then
     log_info "Removing web files..."
     rm -f /var/www/html/index.html
+    rm -f /var/www/html/theme.css
     rm -f /var/www/html/admin.cgi
+    rm -f /var/www/html/admin_dashboard.html
+    rm -f /var/www/html/health.cgi
+    rm -f /var/www/html/HELP_CONSOLIDATED.md
     rm -f /var/www/html/*.json
     log_success "Web files removed"
 fi
