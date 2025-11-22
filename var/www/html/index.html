@@ -250,6 +250,10 @@
 
             <!-- 7 Days Tab -->
             <div id="tab-7days" class="tab-content">
+                <!-- Daily Availability Mini-Stats (7 days) -->
+                <div class="power-banner-meta" style="margin-bottom: 16px;" id="daily-availability-cards">
+                    <!-- Dynamically populated by init7DaysView -->
+                </div>
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-card-header">
@@ -328,6 +332,7 @@
                         <div class="chart-wrapper"><canvas id="solarGenerationChart7"></canvas></div>
                     </div>
                     <div class="chart-card">
+                        <div id="daily-solar-indicators" style="position: absolute; top: 10px; right: 12px; display: flex; gap: 4px; flex-wrap: wrap; max-width: 50%; justify-content: flex-end;"></div>
                         <div class="chart-header">
                             <div class="chart-title">
                                 <h3>Solar By Hour (7d)</h3>
@@ -1000,6 +1005,9 @@
             document.getElementById('max-7').innerHTML = `${maxPower.toFixed(1)}<span class="unit">W</span>`;
             document.getElementById('cuts7Count').textContent = cuts.length;
 
+            // Generate daily availability mini-stats for last 7 days
+            renderDailyAvailabilityCards(data);
+
             // Render charts
             // Render same charts as Today view but using weekly data
             renderVoltage7(data);
@@ -1008,6 +1016,60 @@
             renderPowerFactor7(data);
             renderSolarLine7(data);
             renderSolarByHour7(data);
+        }
+
+        function renderDailyAvailabilityCards(data) {
+            const container = document.getElementById('daily-availability-cards');
+            if (!container) return;
+
+            // Group data by date
+            const dailyData = {};
+            if (data && data.length > 0) {
+                data.forEach(pt => {
+                    const date = new Date(pt.timestamp).toISOString().split('T')[0];
+                    if (!dailyData[date]) dailyData[date] = [];
+                    dailyData[date].push(pt);
+                });
+            }
+
+            // Always show last 7 days (from today backwards)
+            const today = new Date();
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            let html = '';
+
+            for (let i = 6; i >= 0; i--) {
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() - i);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const dayName = dayNames[targetDate.getDay()];
+                const dayData = dailyData[dateStr] || [];
+                
+                // Calculate availability for this day
+                let availabilityPct = '--';
+                if (dayData.length > 0) {
+                    const totalMinutes = dayData.length * 10; // assume 10-min samples
+                    const dayCuts = detectPowerCuts(dayData);
+                    const downtimeMinutes = dayCuts.reduce((s, c) => s + (Number(c.duration) || 0), 0);
+                    const availableMinutes = Math.max(0, totalMinutes - downtimeMinutes);
+                    availabilityPct = totalMinutes > 0 ? Math.round((availableMinutes / totalMinutes) * 100) + '%' : '--';
+                } else {
+                    availabilityPct = '--';
+                }
+
+                html += `
+                    <div class="mini-stat">
+                        <div class="stat-card-header">
+                            <div class="mini-icon">
+                                <span class="material-symbols-outlined">shield_check</span>
+                            </div>
+                            <div class="stat-card-title">${dayName}</div>
+                        </div>
+                        <div class="stat-card-value">${availabilityPct}</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         function init30DaysView(data) {
@@ -1279,26 +1341,97 @@
 
             // Simplify axis labels/legends for specific charts (match Solar charts style)
             // Apply compact axis configuration for voltage, hourly energy and power factor
+            // For 7 Days charts, show weekday names (MON, TUE, WED, etc.) on x-axis
+            const is7DayChart = chartId.includes('Chart7');
             try {
                 const gridColor = cssGridColor.trim();
                 if (chartId.includes('voltageChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6, color: cssTextSecondary.trim() } };
+                    const xAxisConfig = {
+                        type: 'time',
+                        time: { unit: is7DayChart ? 'day' : 'hour' },
+                        grid: { display: false },
+                        ticks: {
+                            maxTicksLimit: is7DayChart ? 7 : 6,
+                            color: cssTextSecondary.trim(),
+                            font: { size: is7DayChart ? 11 : 10 }
+                        }
+                    };
+                    if (is7DayChart) {
+                        xAxisConfig.ticks.callback = function(value, index, values) {
+                            const date = new Date(value);
+                            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                            return days[date.getDay()];
+                        };
+                    }
+                    chartOptions.scales.x = xAxisConfig;
                     chartOptions.scales.y = { grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4, color: cssTextSecondary.trim() }, title: { display: false } };
                 } else if (chartId.includes('hourlyEnergyChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } };
+                    const xAxisConfig = {
+                        type: 'time',
+                        time: { unit: is7DayChart ? 'day' : 'hour' },
+                        grid: { display: false },
+                        ticks: {
+                            maxTicksLimit: is7DayChart ? 7 : 8,
+                            font: { size: is7DayChart ? 11 : 10 }
+                        }
+                    };
+                    if (is7DayChart) {
+                        xAxisConfig.ticks.callback = function(value, index, values) {
+                            const date = new Date(value);
+                            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                            return days[date.getDay()];
+                        };
+                    }
+                    chartOptions.scales.x = xAxisConfig;
                     chartOptions.scales.y = { beginAtZero: true, grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
                     chartType = 'bar';
                 } else if (chartId.includes('powerFactorChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } };
+                    const xAxisConfig = {
+                        type: 'time',
+                        time: { unit: is7DayChart ? 'day' : 'hour' },
+                        grid: { display: false },
+                        ticks: {
+                            maxTicksLimit: is7DayChart ? 7 : 6,
+                            font: { size: is7DayChart ? 11 : 10 }
+                        }
+                    };
+                    if (is7DayChart) {
+                        xAxisConfig.ticks.callback = function(value, index, values) {
+                            const date = new Date(value);
+                            const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                            return days[date.getDay()];
+                        };
+                    }
+                    chartOptions.scales.x = xAxisConfig;
                     chartOptions.scales.y = { min: 0.6, max: 1.0, grid: { color: gridColor }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
+                } else if (chartId.includes('livePowerChart')) {
+                    if (is7DayChart) {
+                        chartOptions.scales.x = {
+                            type: 'time',
+                            time: { unit: 'day' },
+                            grid: { display: false },
+                            ticks: {
+                                maxTicksLimit: 7,
+                                font: { size: 11 },
+                                callback: function(value, index, values) {
+                                    const date = new Date(value);
+                                    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                                    return days[date.getDay()];
+                                }
+                            }
+                        };
+                    }
                 }
             } catch (e) { /* ignore theme errors */ }
 
-            // Dataset defaults - use darker yellow border for bar outlines and rounded bars
+            // Dataset defaults - use theme colors from CSS variables
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
+            const chartBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-bg') || 'rgba(244, 200, 75, 0.15)';
             const dataset = {
                 data: chartData,
-                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
-                backgroundColor: (chartType === 'bar') ? 'rgba(255, 193, 7, 0.9)' : 'rgba(255, 193, 7, 0.2)',
+                borderColor: chartBorder.trim(),
+                backgroundColor: (chartType === 'bar') ? chartPrimary.trim() : chartBg.trim(),
                 borderWidth: (chartType === 'bar') ? 1 : 2,
                 fill: chartType !== 'bar',
                 tension: 0.4,
@@ -1462,19 +1595,33 @@
             const chartData = series.map(s => ({ x: s.t, y: Number(s.v || 0) }));
 
             // Use theme colors from CSS variables so solar charts match the site theme
-            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
-            const accentDark = getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800';
-            const bg = hexToRgba((accentDark.trim() || accent).trim(), 0.08);
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
+            const chartBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-bg') || 'rgba(244, 200, 75, 0.15)';
 
             const cssGridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
+            const is7DayChart = chartId.includes('Chart7');
+            const xAxisConfig = {
+                type: 'time',
+                time: { unit: is7DayChart ? 'day' : 'hour' },
+                grid: { display: false },
+                ticks: { maxTicksLimit: is7DayChart ? 7 : 6, font: { size: is7DayChart ? 11 : 10 } }
+            };
+            if (is7DayChart) {
+                xAxisConfig.ticks.callback = function(value, index, values) {
+                    const date = new Date(value);
+                    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                    return days[date.getDay()];
+                };
+            }
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'line',
-                data: { datasets: [{ data: chartData, borderColor: (accentDark.trim() || accent).trim(), backgroundColor: bg, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
+                data: { datasets: [{ data: chartData, borderColor: chartBorder.trim(), backgroundColor: chartBg.trim(), borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
                 options: {
                     ...commonChartOptions,
                     plugins: { tooltip: { mode: 'index', intersect: false }, legend: { display: false } },
                     scales: {
-                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                        x: xAxisConfig,
                         y: { beginAtZero: true, grid: { color: cssGridColor.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } }
                     }
                 }
@@ -1518,19 +1665,35 @@
 
             // (no recent badge here — recent badge moved to the Solar Generation chart)
 
-            const accentDark = getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800';
-            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
-            const bgColor = hexToRgba((accent.trim() || accentDark.trim()).trim(), 0.9);
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
             const dataset = {
                 data: entries,
-                backgroundColor: bgColor,
-                borderColor: (accentDark.trim() || accent.trim()).trim(),
+                backgroundColor: chartPrimary.trim(),
+                borderColor: chartBorder.trim(),
                 borderWidth: 1,
                 borderRadius: 6,
                 borderSkipped: false
             };
 
             const cssGridColorBar = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
+            const is7DayChart = chartId.includes('Chart7');
+            const xAxisConfig = {
+                type: 'time',
+                time: { unit: is7DayChart ? 'day' : 'hour' },
+                grid: { display: false },
+                ticks: {
+                    maxTicksLimit: is7DayChart ? 7 : 8,
+                    font: { size: is7DayChart ? 11 : 10 }
+                }
+            };
+            if (is7DayChart) {
+                xAxisConfig.ticks.callback = function(value, index, values) {
+                    const date = new Date(value);
+                    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+                    return days[date.getDay()];
+                };
+            }
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'bar',
                 data: { datasets: [dataset] },
@@ -1552,11 +1715,47 @@
                         } } 
                     },
                     scales: {
-                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                        x: xAxisConfig,
                         y: { beginAtZero: true, grid: { color: cssGridColorBar.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 5 }, title: { display: false } }
                     }
                 }
             });
+            
+            // For 7 Days chart, add daily solar generation indicators
+            if (is7DayChart) {
+                renderDailySolarIndicators(data);
+            }
+        }
+
+        function renderDailySolarIndicators(data) {
+            const container = document.getElementById('daily-solar-indicators');
+            if (!container || !data || data.length === 0) return;
+
+            // Group solar data by date
+            const dailySolar = {};
+            data.forEach(pt => {
+                const date = new Date(pt.timestamp).toISOString().split('T')[0];
+                const solarVal = pt.solar_kwh || pt.solar || pt.pv_kwh || 0;
+                if (!dailySolar[date]) dailySolar[date] = 0;
+                dailySolar[date] += Number(solarVal);
+            });
+
+            // Get last 7 days and create indicators
+            const today = new Date();
+            const dayAbbrev = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+            let html = '';
+
+            for (let i = 6; i >= 0; i--) {
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() - i);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const dayName = dayAbbrev[targetDate.getDay()];
+                const totalSolar = dailySolar[dateStr] || 0;
+
+                html += `<div class="recent-indicator" title="${dayName}: ${totalSolar.toFixed(2)} kWh" style="font-size: 0.75rem; padding: 4px 6px; white-space: nowrap; display: inline-block;">${dayName}<br>${totalSolar > 0 ? totalSolar.toFixed(1) : '--'}</div>`;
+            }
+
+            container.innerHTML = html;
         }
 
         function render7DayEnergyChart(data) {
@@ -1571,11 +1770,13 @@
             
             const chartData = Object.entries(dailyData).map(([date, kwh]) => ({ x: date, y: kwh }));
 
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
             const dataset = {
                 label: 'Energy (kWh)',
                 data: chartData,
-                backgroundColor: 'rgba(255, 193, 7, 0.9)',
-                borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent-dark') || '#E0A800',
+                backgroundColor: chartPrimary.trim(),
+                borderColor: chartBorder.trim(),
                 borderWidth: 1,
                 borderRadius: 8,
                 borderSkipped: false
@@ -1593,13 +1794,16 @@
             destroyChart(chartId);
             const dailyAverages = data.map(dp => ({ x: dp.timestamp, y: dp.value }));
             
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
+            const chartBg = getComputedStyle(document.documentElement).getPropertyValue('--chart-bg') || 'rgba(244, 200, 75, 0.15)';
             chartInstances[chartId] = new Chart(document.getElementById(chartId), {
                 type: 'line',
                 data: { datasets: [{
                     label: 'Daily Average (W)',
                     data: dailyAverages,
-                    borderColor: 'var(--accent-color)',
-                    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                    borderColor: chartBorder.trim(),
+                    backgroundColor: chartBg.trim(),
                     borderWidth: 3,
                     fill: true,
                     tension: 0.4,
@@ -1624,12 +1828,15 @@
                 y: d.sum / d.count
             }));
             
+            const chartPrimary = getComputedStyle(document.documentElement).getPropertyValue('--chart-primary') || '#f4c84b';
+            const chartBorder = getComputedStyle(document.documentElement).getPropertyValue('--chart-border') || '#d79e16';
             chartInstances[chartId] = new Chart(document.getElementById(chartId), {
                 type: 'bar',
                 data: { datasets: [{
                     label: 'Monthly Average (W)',
                     data: monthlyAverages,
-                    backgroundColor: 'rgba(255, 193, 7, 0.7)',
+                    backgroundColor: chartPrimary.trim(),
+                    borderColor: chartBorder.trim(),
                     borderRadius: 4
                 }] },
                 options: commonChartOptions

@@ -15,10 +15,25 @@
   --danger-color: #DC3545;
   --success-color: #28A745;
 
+  /* Chart colors (consistent across all charts) */
+  --chart-primary: #f4c84b;
+  --chart-border: #d79e16;
+  --chart-bg: rgba(244, 200, 75, 0.15);
+
   /* Icon and card surface variables (configurable here) */
   --icon-bg: #F8F9FA;
   --icon-color: var(--text-primary);
   --card-surface: var(--surface-color);
+}
+
+/* Daily solar indicators layout */
+#daily-solar-indicators {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
 }
 
 /* Dark theme overrides for card surface and icons */

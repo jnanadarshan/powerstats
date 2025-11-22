@@ -1,26 +1,26 @@
 #!/bin/sh
 # backup_restore.sh
-# Interactive helper to backup and restore Powerstats config and JSON data files.
-# Places: repo root `config.json` and data files under `var/www/html` (daily.json, weekly.json, monthly.json, yearly.json)
+# Pull live config and data files from installed system into local repo folder.
+# This prepares the repo for reinstallation with existing data.
+#
+# Usage: Run from inside the cloned powerstats repo folder
+#   sh backup_restore.sh
+#
+# This will copy files FROM the device installation TO the local repo:
+#   /opt/power-monitor/config.json       -> ./config.json
+#   /var/www/html/thresholds.json        -> ./var/www/html/thresholds.json
+#   /var/www/html/daily.json             -> ./var/www/html/daily.json
+#   /var/www/html/weekly.json            -> ./var/www/html/weekly.json
+#   /var/www/html/monthly.json           -> ./var/www/html/monthly.json
+#   /var/www/html/yearly.json            -> ./var/www/html/yearly.json
+#
+# When you later run install.sh, these files will be copied to the device,
+# automatically restoring your configuration and data.
 
 set -eu
 
 timestamp() {
   date +"%Y%m%d-%H%M%S"
-}
-
-read_answer() {
-  # prompt with default
-  prompt="$1"; shift
-  default="$1"; shift
-  ans=""
-  printf "%s [%s]: " "$prompt" "$default"
-  read ans
-  if [ -z "$ans" ]; then
-    printf "%s" "$default"
-  else
-    printf "%s" "$ans"
-  fi
 }
 
 confirm() {
@@ -33,175 +33,187 @@ confirm() {
   esac
 }
 
-# default file list (relative to repo root / source dir)
-FILES="config.json var/www/html/daily.json var/www/html/weekly.json var/www/html/monthly.json var/www/html/yearly.json"
-
 print_header() {
   echo "========================================"
-  echo " Powerstats Backup & Restore"
+  echo " Powerstats Backup from Device"
   echo "========================================"
 }
 
-list_files_found() {
-  src_dir="$1"
-  for f in $FILES; do
-    if [ -f "$src_dir/$f" ]; then
-      echo "FOUND: $f"
+# Map of installed files -> repo locations
+declare -A FILE_MAP
+FILE_MAP["/opt/power-monitor/config.json"]="config.json"
+FILE_MAP["/var/www/html/thresholds.json"]="var/www/html/thresholds.json"
+FILE_MAP["/var/www/html/daily.json"]="var/www/html/daily.json"
+FILE_MAP["/var/www/html/weekly.json"]="var/www/html/weekly.json"
+FILE_MAP["/var/www/html/monthly.json"]="var/www/html/monthly.json"
+FILE_MAP["/var/www/html/yearly.json"]="var/www/html/yearly.json"
+
+check_repo_folder() {
+  # Verify we're in a powerstats repo folder
+  if [ ! -f "install.sh" ] || [ ! -d "opt" ] || [ ! -d "var" ]; then
+    echo "ERROR: This doesn't look like a powerstats repository folder."
+    echo "Please run this script from inside your cloned powerstats folder."
+    return 1
+  fi
+  return 0
+}
+
+check_installation() {
+  # Check if powerstats is installed on the device
+  if [ ! -d "/opt/power-monitor" ] || [ ! -f "/opt/power-monitor/config.json" ]; then
+    echo "ERROR: Powerstats installation not found on this device."
+    echo "Cannot find /opt/power-monitor/config.json"
+    echo ""
+    echo "This script pulls files FROM an installed system."
+    echo "If you need to reinstall, just run: sh install.sh"
+    return 1
+  fi
+  return 0
+}
+
+list_available_files() {
+  echo ""
+  echo "Checking installed files on device:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  local found_count=0
+  local missing_count=0
+  
+  for src_file in "${!FILE_MAP[@]}"; do
+    if [ -f "$src_file" ]; then
+      echo "  ✓ FOUND: $src_file"
+      found_count=$((found_count + 1))
     else
-      echo "MISSING: $f"
+      echo "  ✗ MISSING: $src_file"
+      missing_count=$((missing_count + 1))
     fi
   done
+  
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Found: $found_count | Missing: $missing_count"
+  echo ""
+  
+  if [ "$found_count" -eq 0 ]; then
+    echo "ERROR: No files found to backup."
+    return 1
+  fi
+  return 0
 }
 
 perform_backup() {
-  src_dir="$1"
-  dest_dir="$2"
-  ts=$(timestamp)
-  dest_sub="$dest_dir/powerstats-backup-$ts"
-  echo "Creating backup folder: $dest_sub"
-  mkdir -p "$dest_sub"
-  echo "Backing up files from: $src_dir"
-  any=0
-  manifest="$dest_sub/manifest.txt"
-  echo "Backup created: $ts" > "$manifest"
-  echo "Source: $src_dir" >> "$manifest"
-  echo "Files:" >> "$manifest"
-  for f in $FILES; do
-    if [ -f "$src_dir/$f" ]; then
-      mkdir -p "$(dirname "$dest_sub/$f")"
-      cp -p "$src_dir/$f" "$dest_sub/$f"
-      echo "$f -> $dest_sub/$f" >> "$manifest"
-      echo " - copied: $f"
-      any=1
+  local repo_dir="$(pwd)"
+  local ts=$(timestamp)
+  local backup_manifest="${repo_dir}/backup-manifest-${ts}.txt"
+  local copied_count=0
+  local skipped_count=0
+  
+  echo ""
+  echo "Backing up files from device to repo..."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  
+  # Create backup manifest
+  echo "Backup performed: $(date)" > "$backup_manifest"
+  echo "Repository: $repo_dir" >> "$backup_manifest"
+  echo "" >> "$backup_manifest"
+  echo "Files copied:" >> "$backup_manifest"
+  
+  for src_file in "${!FILE_MAP[@]}"; do
+    local dest_file="${repo_dir}/${FILE_MAP[$src_file]}"
+    
+    if [ -f "$src_file" ]; then
+      # Create destination directory if needed
+      mkdir -p "$(dirname "$dest_file")"
+      
+      # Create backup of existing repo file if it exists
+      if [ -f "$dest_file" ]; then
+        cp -p "$dest_file" "${dest_file}.bak.${ts}" 2>/dev/null || true
+        echo "  → Backed up existing: ${FILE_MAP[$src_file]}.bak.${ts}"
+      fi
+      
+      # Copy from device to repo
+      if cp -p "$src_file" "$dest_file" 2>/dev/null; then
+        echo "  ✓ Copied: $src_file"
+        echo "           → ${FILE_MAP[$src_file]}"
+        echo "$src_file -> ${FILE_MAP[$src_file]}" >> "$backup_manifest"
+        copied_count=$((copied_count + 1))
+      else
+        echo "  ✗ Failed: $src_file (permission denied?)"
+        echo "FAILED: $src_file" >> "$backup_manifest"
+        skipped_count=$((skipped_count + 1))
+      fi
     else
-      echo " - missing: $f (skipped)"
-      echo "MISSING: $f" >> "$manifest"
+      echo "  - Skipped: $src_file (not found)"
+      echo "MISSING: $src_file" >> "$backup_manifest"
+      skipped_count=$((skipped_count + 1))
     fi
   done
-  if [ "$any" -eq 0 ] 2>/dev/null; then
-    echo "No files were copied. Removing empty backup folder."
-    rm -rf "$dest_sub"
+  
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "Backup complete!"
+  echo "  Copied: $copied_count files"
+  echo "  Skipped: $skipped_count files"
+  echo "  Manifest: backup-manifest-${ts}.txt"
+  echo ""
+  
+  if [ "$copied_count" -gt 0 ]; then
+    echo "✓ Your repo now contains the live config and data files."
+    echo "✓ When you run 'sh install.sh', these files will be restored."
+    echo ""
+    return 0
+  else
+    echo "✗ No files were copied. Check permissions."
     return 1
   fi
-  echo "Backup complete. Manifest at: $manifest"
-  return 0
 }
 
-choose_backup_folder() {
-  base=$(read_answer "Enter destination folder for backups (absolute path)" "$HOME")
-  mkdir -p "$base"
-  echo "$base"
-}
-
-list_available_backups() {
-  base="$1"
-  if [ ! -d "$base" ]; then
-    echo "No such folder: $base"
-    return 1
+# Main execution
+main() {
+  print_header
+  echo ""
+  echo "This script copies live config and data files from your"
+  echo "installed Powerstats system into this repository folder."
+  echo ""
+  echo "After backup, when you run install.sh, your configuration"
+  echo "and historical data will be automatically restored."
+  echo ""
+  
+  # Check if we're in the right place
+  if ! check_repo_folder; then
+    exit 1
   fi
-  echo "Available backups in $base:"
-  ls -1d "$base"/powerstats-backup-* 2>/dev/null || echo " (none)"
+  
+  echo "✓ Running from powerstats repository folder"
+  
+  # Check if installation exists
+  if ! check_installation; then
+    exit 1
+  fi
+  
+  echo "✓ Found powerstats installation on device"
+  
+  # List available files
+  if ! list_available_files; then
+    exit 1
+  fi
+  
+  # Confirm
+  if ! confirm "Pull these files from device into repo folder?"; then
+    echo "Backup cancelled."
+    exit 0
+  fi
+  
+  # Perform backup
+  if perform_backup; then
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Next steps:"
+    echo "  1. (Optional) Commit changes: git add . && git commit -m 'Backup data'"
+    echo "  2. To reinstall: sh uninstall.sh && sh install.sh"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    exit 0
+  else
+    echo "Backup failed."
+    exit 1
+  fi
 }
 
-perform_restore() {
-  backup_dir="$1"
-  target_dir="$2"
-  if [ ! -d "$backup_dir" ]; then
-    echo "Backup folder not found: $backup_dir"
-    return 1
-  fi
-  echo "Restoring from $backup_dir to $target_dir"
-  # for safety, list files present in backup (portable)
-  available_files=$(cd "$backup_dir" 2>/dev/null && find . -type f | sed 's|^\./||')
-  if [ -z "$available_files" ]; then
-    echo "No files found in backup to restore."
-    return 1
-  fi
-  echo "Files in backup:"
-  printf '%s\n' "$available_files" | sed 's|^| - |'
-
-  if ! confirm "Proceed to restore all files (will overwrite target files)?"; then
-    echo "Restore aborted by user."
-    return 2
-  fi
-
-  # copy files (preserve attributes)
-  printf '%s\n' "$available_files" | while IFS= read -r f; do
-    src="$backup_dir/$f"
-    # avoid restoring manifest
-    if [ "$f" = "manifest.txt" ]; then continue; fi
-    dest="$target_dir/$f"
-    mkdir -p "$(dirname "$dest")"
-    cp -p "$src" "$dest"
-    echo "Restored: $dest"
-  done
-  echo "Restore complete."
-  return 0
-}
-
-main_menu() {
-  while true; do
-    print_header
-    echo "Choose an option:"
-    echo "  1) Backup config and data files"
-    echo "  2) Restore from a backup"
-    echo "  3) List backups in a folder"
-    echo "  4) Exit"
-    echo -n "Select [1-4]: "
-    read opt
-    case "$opt" in
-      1)
-        echo "Backup selected."
-        src=$(read_answer "Enter the Powerstats repo folder (source)" "$(pwd)")
-        echo "Checking for files in: $src"
-        list_files_found "$src"
-        dest=$(choose_backup_folder)
-        if confirm "Start backup now to $dest?"; then
-          if perform_backup "$src" "$dest"; then
-            echo "Backup saved to $dest"
-          else
-            echo "Backup failed or nothing copied."
-          fi
-        else
-          echo "Backup cancelled."
-        fi
-        echo "Press Enter to continue..."
-        read dummy
-        ;;
-      2)
-        echo "Restore selected."
-        base=$(read_answer "Enter folder where backups are located" "$HOME")
-        list_available_backups "$base"
-        bdir=$(read_answer "Enter the exact backup directory to restore (full path)" "")
-        if [[ -z "$bdir" ]]; then
-          echo "No backup chosen; aborting."
-        else
-          tgt=$(read_answer "Enter target folder to restore into (your Powerstats repo folder)" "$(pwd)")
-          if confirm "Restore from $bdir into $tgt ?"; then
-            perform_restore "$bdir" "$tgt"
-          else
-            echo "Restore cancelled."
-          fi
-        fi
-        echo "Press Enter to continue..."
-        read dummy
-        ;;
-      3)
-        base=$(read_answer "Enter folder where backups are located" "$HOME")
-        list_available_backups "$base"
-        echo "Press Enter to continue..."
-        read dummy
-        ;;
-      4)
-        echo "Goodbye."
-        exit 0
-        ;;
-      *) echo "Invalid choice";;
-    esac
-  done
-}
-
-# If script is run directly, start menu. If sourced, export functions for reuse.
-case "$(basename "$0")" in
-  backup_restore.sh) main_menu ;;
-esac
+# Run main function
+main
