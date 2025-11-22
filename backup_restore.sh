@@ -39,14 +39,13 @@ print_header() {
   echo "========================================"
 }
 
-# Map of installed files -> repo locations
-declare -A FILE_MAP
-FILE_MAP["/opt/power-monitor/config.json"]="config.json"
-FILE_MAP["/var/www/html/thresholds.json"]="var/www/html/thresholds.json"
-FILE_MAP["/var/www/html/daily.json"]="var/www/html/daily.json"
-FILE_MAP["/var/www/html/weekly.json"]="var/www/html/weekly.json"
-FILE_MAP["/var/www/html/monthly.json"]="var/www/html/monthly.json"
-FILE_MAP["/var/www/html/yearly.json"]="var/www/html/yearly.json"
+# Map of installed files -> repo locations (POSIX-safe newline-separated list)
+FILE_LIST='/opt/power-monitor/config.json|config.json
+/var/www/html/thresholds.json|var/www/html/thresholds.json
+/var/www/html/daily.json|var/www/html/daily.json
+/var/www/html/weekly.json|var/www/html/weekly.json
+/var/www/html/monthly.json|var/www/html/monthly.json
+/var/www/html/yearly.json|var/www/html/yearly.json'
 
 check_repo_folder() {
   # Verify we're in a powerstats repo folder
@@ -75,10 +74,13 @@ list_available_files() {
   echo ""
   echo "Checking installed files on device:"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  local found_count=0
-  local missing_count=0
-  
-  for src_file in "${!FILE_MAP[@]}"; do
+  found_count=0
+  missing_count=0
+
+  # iterate over FILE_LIST lines
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    src_file=${line%%|*}
     if [ -f "$src_file" ]; then
       echo "  ✓ FOUND: $src_file"
       found_count=$((found_count + 1))
@@ -86,12 +88,14 @@ list_available_files() {
       echo "  ✗ MISSING: $src_file"
       missing_count=$((missing_count + 1))
     fi
-  done
-  
+  done <<'EOF'
+${FILE_LIST}
+EOF
+
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Found: $found_count | Missing: $missing_count"
   echo ""
-  
+
   if [ "$found_count" -eq 0 ]; then
     echo "ERROR: No files found to backup."
     return 1
@@ -100,40 +104,40 @@ list_available_files() {
 }
 
 perform_backup() {
-  local repo_dir="$(pwd)"
-  local ts=$(timestamp)
-  local backup_manifest="${repo_dir}/backup-manifest-${ts}.txt"
-  local copied_count=0
-  local skipped_count=0
-  
+  repo_dir="$(pwd)"
+  ts=$(timestamp)
+  backup_manifest="${repo_dir}/backup-manifest-${ts}.txt"
+  copied_count=0
+  skipped_count=0
+
   echo ""
   echo "Backing up files from device to repo..."
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  
+
   # Create backup manifest
   echo "Backup performed: $(date)" > "$backup_manifest"
   echo "Repository: $repo_dir" >> "$backup_manifest"
   echo "" >> "$backup_manifest"
   echo "Files copied:" >> "$backup_manifest"
-  
-  for src_file in "${!FILE_MAP[@]}"; do
-    local dest_file="${repo_dir}/${FILE_MAP[$src_file]}"
-    
+
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    src_file=${line%%|*}
+    dest_rel=${line#*|}
+    dest_file="${repo_dir}/${dest_rel}"
+
     if [ -f "$src_file" ]; then
-      # Create destination directory if needed
       mkdir -p "$(dirname "$dest_file")"
-      
-      # Create backup of existing repo file if it exists
+
       if [ -f "$dest_file" ]; then
         cp -p "$dest_file" "${dest_file}.bak.${ts}" 2>/dev/null || true
-        echo "  → Backed up existing: ${FILE_MAP[$src_file]}.bak.${ts}"
+        echo "  → Backed up existing: ${dest_rel}.bak.${ts}"
       fi
-      
-      # Copy from device to repo
+
       if cp -p "$src_file" "$dest_file" 2>/dev/null; then
         echo "  ✓ Copied: $src_file"
-        echo "           → ${FILE_MAP[$src_file]}"
-        echo "$src_file -> ${FILE_MAP[$src_file]}" >> "$backup_manifest"
+        echo "           → ${dest_rel}"
+        echo "$src_file -> ${dest_rel}" >> "$backup_manifest"
         copied_count=$((copied_count + 1))
       else
         echo "  ✗ Failed: $src_file (permission denied?)"
@@ -145,15 +149,17 @@ perform_backup() {
       echo "MISSING: $src_file" >> "$backup_manifest"
       skipped_count=$((skipped_count + 1))
     fi
-  done
-  
+  done <<'EOF'
+${FILE_LIST}
+EOF
+
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "Backup complete!"
   echo "  Copied: $copied_count files"
   echo "  Skipped: $skipped_count files"
   echo "  Manifest: backup-manifest-${ts}.txt"
   echo ""
-  
+
   if [ "$copied_count" -gt 0 ]; then
     echo "✓ Your repo now contains the live config and data files."
     echo "✓ When you run 'sh install.sh', these files will be restored."
