@@ -78,7 +78,7 @@ list_available_files() {
   found_count=0
   missing_count=0
 
-  # iterate over FILE_LIST lines
+  # iterate over FILE_LIST lines (expand variable into here-doc)
   while IFS= read -r line; do
     [ -z "$line" ] && continue
     src_file=${line%%|*}
@@ -89,8 +89,8 @@ list_available_files() {
       echo "  ✗ MISSING: $src_file"
       missing_count=$((missing_count + 1))
     fi
-  done <<'EOF'
-${FILE_LIST}
+  done <<EOF
+$FILE_LIST
 EOF
 
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -150,8 +150,8 @@ perform_backup() {
       echo "MISSING: $src_file" >> "$backup_manifest"
       skipped_count=$((skipped_count + 1))
     fi
-  done <<'EOF'
-${FILE_LIST}
+  done <<EOF
+$FILE_LIST
 EOF
 
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

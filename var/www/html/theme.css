@@ -105,39 +105,53 @@ html[data-theme="dark"] {
     width: 100%;
     max-width: 100%;
   }
+  
+  /* Daily availability cards container: override to use flex */
+  #daily-availability-cards {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100%;
+  }
 
   /* Compact mini-stat cards to prevent overflow */
   .mini-stat {
-    padding: 8px 6px;
-    width: 100% !important;
-    min-width: 0 !important;
-    font-size: 0.75rem;
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 140px;
+    max-width: 100%;
+    padding: 10px;
+  }
+  
+  .mini-stat-availability {
+    flex: 1 1 calc(25% - 0.6rem);
+    min-width: 80px;
   }
 
   .mini-stat .stat-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
   }
 
   .mini-stat .mini-icon {
-    width: 24px;
-    height: 24px;
-    margin-right: 0;
+    width: 28px;
+    height: 28px;
   }
 
   .mini-stat .mini-icon .material-symbols-outlined {
-    font-size: 16px;
+    font-size: 18px;
   }
 
   .mini-stat .stat-card-title {
-    font-size: 0.7rem;
-    line-height: 1.2;
+    font-size: 0.75rem;
+    line-height: 1.3;
   }
 
   .mini-stat .stat-card-value {
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     font-weight: 600;
+    margin: 2px 0;
   }
 
   /* Power status banner: compact for mobile, hide icon */
@@ -234,31 +248,101 @@ html[data-theme="dark"] {
 
 /* Mini-stat base styles (moved from inline index.html for central control) */
 .mini-stat {
-  padding: 10px 12px;
-  width: 160px;
-  min-width: 140px;
+  padding: 12px;
+  flex: 1 1 calc(14.28% - 0.75rem);
+  min-width: 120px;
+  max-width: 180px;
   background: var(--card-surface);
   border-radius: 12px;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mini-stat-availability {
+  padding: 10px;
+  flex: 1 1 calc(14.28% - 0.75rem);
+  min-width: 90px;
+  background: var(--card-surface);
+  border-radius: 12px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.mini-stat-availability .day-name {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mini-stat-availability .donut-container {
+  width: 60px;
+  height: 60px;
+  position: relative;
+}
+
+.mini-stat-availability .donut-chart {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.mini-stat-availability .donut-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mini-stat-availability .cut-info {
+  font-size: 0.65rem;
+  color: var(--muted);
+  margin-top: 2px;
 }
 .mini-stat .stat-card-header {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  min-height: 32px;
 }
 .mini-stat .mini-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   background: var(--icon-bg);
 }
-.mini-stat .mini-icon .material-symbols-outlined { font-size: 18px; color: var(--icon-color); }
-.mini-stat .stat-card-title { font-size: 0.78rem; color: var(--text-secondary); }
-.mini-stat .stat-card-value { font-size: 1.1rem; font-weight: 700; }
+.mini-stat .mini-icon .material-symbols-outlined { font-size: 20px; color: var(--icon-color); }
+.mini-stat .stat-card-title {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+  word-wrap: break-word;
+  flex: 1;
+}
+.mini-stat .stat-card-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 4px 0;
+}
+.mini-stat .stat-card-footer {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: auto;
+}
 
 /* Tone down chart headers and text */
 .chart-title h3, .chart-title p, .chart-card .chart-title h3, .chart-card .chart-title p {
@@ -452,5 +536,19 @@ footer { text-align: center; color: var(--text-secondary); font-size: 0.85rem; m
   border-radius: 999px;
 }
 .floating-time-toggle.hidden { display: none !important; }
+
+/* Extra small screens: stack daily availability cards single column */
+@media (max-width: 480px) {
+  .mini-stat {
+    flex: 1 1 100%;
+    min-width: 100%;
+    max-width: 100%;
+  }
+  
+  .mini-stat-availability {
+    flex: 1 1 calc(50% - 0.4rem);
+    min-width: 70px;
+  }
+}
 
 

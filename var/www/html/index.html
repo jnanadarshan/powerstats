@@ -250,6 +250,11 @@
 
             <!-- 7 Days Tab -->
             <div id="tab-7days" class="tab-content">
+                <!-- Daily Availability Mini Stats Banner -->
+                <div class="power-banner-meta" style="margin-bottom: 1.5rem;">
+                    <div id="daily-availability-cards" style="display: flex; gap: 0.65rem; flex-wrap: wrap; width: 100%;"></div>
+                </div>
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-card-header">
@@ -890,11 +895,11 @@
             // Data points count
             if (countEl) countEl.textContent = (data && Array.isArray(data)) ? data.length : '--';
 
-            // Next update: try to read collection interval from /config.json
+            // Next update: try to read collection interval from config.json
             let nextDisplay = '--';
             try {
                 let interval = 10; // default minutes
-                const resp = await fetch('/config.json');
+                const resp = await fetch('config.json');
                 if (resp.ok) {
                     const cfg = await resp.json();
                     if (cfg && typeof cfg.collection_interval_minutes !== 'undefined') interval = Number(cfg.collection_interval_minutes) || interval;
@@ -981,24 +986,106 @@
         function init7DaysView(data) {
             if (!data || data.length === 0) return;
 
-            const totalKwh = data.reduce((s, p) => s + (p.value / 6000.0), 0);
-            const avgPower = data.reduce((s, p) => s + p.value, 0) / data.length;
-            const maxPower = Math.max(...data.map(p => p.value));
-            const cuts = detectPowerCuts(data);
+            // Normalize weekly.json data structure (has 'power' field) to match expected format (needs 'value' field)
+            const normalizedData = data.map(pt => ({
+                timestamp: pt.timestamp,
+                value: pt.power || pt.value || 0,
+                voltage: pt.voltage,
+                power_factor: pt.power_factor,
+                solar_kwh: pt.solar,
+                solar: pt.solar,
+                daily_energy: pt.daily_energy
+            }));
+
+            const totalKwh = normalizedData.reduce((s, p) => s + (p.value / 6000.0), 0);
+            const avgPower = normalizedData.reduce((s, p) => s + p.value, 0) / normalizedData.length;
+            const maxPower = Math.max(...normalizedData.map(p => p.value));
+            const cuts = detectPowerCuts(normalizedData);
 
             document.getElementById('avg-7').innerHTML = `${avgPower.toFixed(1)}<span class="unit">W</span>`;
             document.getElementById('total-7').innerHTML = `${totalKwh.toFixed(2)}<span class="unit">kWh</span>`;
             document.getElementById('max-7').innerHTML = `${maxPower.toFixed(1)}<span class="unit">W</span>`;
             document.getElementById('cuts7Count').textContent = cuts.length;
 
+            // Render daily availability cards
+            renderDailyAvailabilityCards(normalizedData);
+
             // Render charts
             // Render same charts as Today view but using weekly data
-            renderVoltage7(data);
-            renderHourlyEnergy7(data);
-            renderLivePower7(data);
-            renderPowerFactor7(data);
-            renderSolarLine7(data);
-            renderSolarByHour7(data);
+            renderVoltage7(normalizedData);
+            renderHourlyEnergy7(normalizedData);
+            renderLivePower7(normalizedData);
+            renderPowerFactor7(normalizedData);
+            renderSolarLine7(normalizedData);
+            renderSolarByHour7(normalizedData);
+        }
+
+        function renderDailyAvailabilityCards(data) {
+            const container = document.getElementById('daily-availability-cards');
+            if (!container) return;
+
+            // Group data by date
+            const dailyData = {};
+            if (data && data.length > 0) {
+                data.forEach(pt => {
+                    const date = new Date(pt.timestamp).toISOString().split('T')[0];
+                    if (!dailyData[date]) dailyData[date] = [];
+                    dailyData[date].push(pt);
+                });
+            }
+
+            // Always show last 7 days (from today backwards)
+            const today = new Date();
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            let html = '';
+
+            for (let i = 6; i >= 0; i--) {
+                const targetDate = new Date(today);
+                targetDate.setDate(today.getDate() - i);
+                const dateStr = targetDate.toISOString().split('T')[0];
+                const dayName = dayNames[targetDate.getDay()];
+                const dayData = dailyData[dateStr] || [];
+                
+                // Calculate availability for this day
+                let availabilityNum = 0;
+                let availabilityPct = '--';
+                let cutCount = 0;
+                if (dayData.length > 0) {
+                    const totalMinutes = dayData.length * 10; // assume 10-min samples
+                    const dayCuts = detectPowerCuts(dayData);
+                    cutCount = dayCuts.length;
+                    const downtimeMinutes = dayCuts.reduce((s, c) => s + (Number(c.duration) || 0), 0);
+                    const availableMinutes = Math.max(0, totalMinutes - downtimeMinutes);
+                    if (totalMinutes > 0) {
+                        availabilityNum = Math.round((availableMinutes / totalMinutes) * 100);
+                        availabilityPct = availabilityNum + '%';
+                    }
+                }
+                
+                // Create donut chart SVG
+                const radius = 24;
+                const circumference = 2 * Math.PI * radius;
+                const fillPercent = availabilityNum;
+                const strokeDashoffset = circumference - (fillPercent / 100) * circumference;
+                const strokeColor = availabilityNum >= 95 ? '#10b981' : availabilityNum >= 80 ? '#f59e0b' : availabilityNum > 0 ? '#ef4444' : '#6b7280';
+
+                html += `
+                    <div class="mini-stat-availability">
+                        <div class="day-name">${dayName}</div>
+                        <div class="donut-container">
+                            <svg class="donut-chart" viewBox="0 0 60 60">
+                                <circle cx="30" cy="30" r="24" fill="none" stroke="var(--grid-color, #e5e7eb)" stroke-width="6"></circle>
+                                <circle cx="30" cy="30" r="24" fill="none" stroke="${strokeColor}" stroke-width="6" 
+                                    stroke-dasharray="${circumference}" stroke-dashoffset="${strokeDashoffset}" stroke-linecap="round"></circle>
+                            </svg>
+                            <div class="donut-center-text">${availabilityNum || '--'}</div>
+                        </div>
+                        <div class="cut-info">${cutCount} cut${cutCount !== 1 ? 's' : ''}</div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         }
 
         function init30DaysView(data) {
@@ -1202,10 +1289,17 @@
             let lastPowerFactor = null;
             const avgVal = data.reduce((s,p)=>s+p.y,0)/Math.max(1, data.length);
 
-            if (chartId === 'voltageChartToday') {
-                const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
-                // compute a synthetic voltage series for display
-                const voltageSeries = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number((230 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5).toFixed(2)) }));
+            if (chartId === 'voltageChartToday' || chartId === 'voltageChart7') {
+                // Use actual voltage if available, otherwise compute synthetic
+                const hasVoltage = data.some(pt => pt.voltage !== undefined && pt.voltage !== null);
+                let voltageSeries;
+                if (hasVoltage) {
+                    voltageSeries = data.map(pt => ({ x: new Date(pt.timestamp), y: Number((pt.voltage || 230).toFixed(2)) }));
+                } else {
+                    const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
+                    // compute a synthetic voltage series for display
+                    voltageSeries = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number((230 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 5 + Math.sin(idx/10) * 0.5).toFixed(2)) }));
+                }
                 if (voltageSeries.length) lastVoltage = voltageSeries[voltageSeries.length - 1].y;
                 chartData = voltageSeries;
 
@@ -1249,20 +1343,38 @@
                 // Attach breach annotation data to chart options via plugin config later
                 chartOptions.plugins = chartOptions.plugins || {};
                 chartOptions.plugins.breach = { breaches, UL, LL };
-            } else if (chartId === 'hourlyEnergyChartToday') {
-                const hourlyMap = {};
+            } else if (chartId === 'hourlyEnergyChartToday' || chartId === 'hourlyEnergyChart7') {
+                const is7Day = chartId.includes('Chart7');
+                const aggregateMap = {};
                 data.forEach(dp => {
-                    const key = new Date(dp.timestamp).toISOString().slice(0,13) + ':00:00Z';
-                    hourlyMap[key] = (hourlyMap[key]||0) + (dp.value / 6000.0);
+                    // For 7-day view, aggregate by day; for today, aggregate by hour
+                    const key = is7Day 
+                        ? new Date(dp.timestamp).toISOString().split('T')[0] + 'T00:00:00Z'
+                        : new Date(dp.timestamp).toISOString().slice(0,13) + ':00:00Z';
+                    aggregateMap[key] = (aggregateMap[key]||0) + (dp.value / 6000.0);
                 });
-                chartData = Object.entries(hourlyMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
+                chartData = Object.entries(aggregateMap).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
                 chartType = 'bar';
-            } else if (chartId === 'livePowerChartToday') {
+            } else if (chartId === 'livePowerChartToday' || chartId === 'livePowerChart7') {
                 chartData = data.map(dp => ({ x: new Date(dp.timestamp), y: dp.value }));
                 if (data.length) lastLivePower = data[data.length - 1].value;
-            } else if (chartId === 'powerFactorChartToday') {
-                const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
-                chartData = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number(Math.max(0.6, Math.min(1.0, 0.95 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 0.02 + Math.cos(idx/15) * 0.005)).toFixed(3)) }));
+            } else if (chartId === 'powerFactorChartToday' || chartId === 'powerFactorChart7') {
+                // Use actual power_factor if available, otherwise compute synthetic
+                const hasPowerFactor = data.some(pt => pt.power_factor !== undefined && pt.power_factor !== null);
+                if (hasPowerFactor) {
+                    // Normalize power_factor values that might be in wrong range (e.g., 6.5 should be 0.65)
+                    chartData = data.map(pt => {
+                        let pf = pt.power_factor || 0.95;
+                        // If power factor is > 1, it's likely in wrong units, divide by 10
+                        if (pf > 1.0) pf = pf / 10.0;
+                        // Clamp to valid range
+                        pf = Math.max(0.6, Math.min(1.0, pf));
+                        return { x: new Date(pt.timestamp), y: Number(pf.toFixed(3)) };
+                    });
+                } else {
+                    const avgPower = data.reduce((s,p)=>s+p.value,0)/data.length;
+                    chartData = data.map((pt, idx) => ({ x: new Date(pt.timestamp), y: Number(Math.max(0.6, Math.min(1.0, 0.95 + ((pt.value - avgPower) / Math.max(1, avgPower)) * 0.02 + Math.cos(idx/15) * 0.005)).toFixed(3)) }));
+                }
                 if (chartData.length) lastPowerFactor = chartData[chartData.length - 1].y;
                 chartOptions.scales.y.min = 0.6;
                 chartOptions.scales.y.max = 1.0;
@@ -1272,15 +1384,17 @@
             // Apply compact axis configuration for voltage, hourly energy and power factor
             try {
                 const gridColor = cssGridColor.trim();
+                const timeUnit = is7DayChart ? 'day' : 'hour';
+                const maxTicks = is7DayChart ? 7 : 6;
                 if (chartId.includes('voltageChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6, color: cssTextSecondary.trim() } };
+                    chartOptions.scales.x = { type: 'time', time: { unit: timeUnit }, grid: { display: false }, ticks: { maxTicksLimit: maxTicks, color: cssTextSecondary.trim() } };
                     chartOptions.scales.y = { grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4, color: cssTextSecondary.trim() }, title: { display: false } };
                 } else if (chartId.includes('hourlyEnergyChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } };
+                    chartOptions.scales.x = { type: 'time', time: { unit: timeUnit }, grid: { display: false }, ticks: { maxTicksLimit: is7DayChart ? 7 : 8 } };
                     chartOptions.scales.y = { beginAtZero: true, grid: { color: gridColor, borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
                     chartType = 'bar';
                 } else if (chartId.includes('powerFactorChart')) {
-                    chartOptions.scales.x = { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } };
+                    chartOptions.scales.x = { type: 'time', time: { unit: timeUnit }, grid: { display: false }, ticks: { maxTicksLimit: maxTicks } };
                     chartOptions.scales.y = { min: 0.6, max: 1.0, grid: { color: gridColor }, ticks: { maxTicksLimit: 4 }, title: { display: false } };
                 }
             } catch (e) { /* ignore theme errors */ }
@@ -1428,26 +1542,36 @@
         function renderHourlyEnergy7(data) { renderTodayChart('hourlyEnergyChart7', data); }
         function renderLivePower7(data) { renderTodayChart('livePowerChart7', data); }
         function renderPowerFactor7(data) { renderTodayChart('powerFactorChart7', data); }
-        function renderSolarLine7(data) { renderSolarLineToday(data); }
-        function renderSolarByHour7(data) { renderSolarByHourToday(data); }
+        function renderSolarLine7(data) { renderSolarLineToday('solarGenerationChart7', data); }
+        function renderSolarByHour7(data) { renderSolarByHourToday('solarByHourChart7', data); }
 
         // --- SOLAR CHARTS FOR TODAY ---
-        function renderSolarLineToday(data) {
-            const chartId = 'solarGenerationChartToday';
+        function renderSolarLineToday(chartIdParam, data) {
+            // Support both old single-param call and new two-param call
+            let chartId, chartData;
+            if (typeof chartIdParam === 'string') {
+                chartId = chartIdParam;
+                chartData = data;
+            } else {
+                chartId = 'solarGenerationChartToday';
+                chartData = chartIdParam;
+            }
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
             if (!canvas) return;
-            if (!data || data.length === 0) {
+            if (!chartData || chartData.length === 0) {
                 console.debug('renderSolarLineToday: no data provided');
                 return;
             }
 
+            const is7DayChart = chartId.includes('Chart7');
+
             // Prefer fields: solar_kwh, solar, pv_kwh
-            const series = data.map(p => ({ t: new Date(p.timestamp), v: (p.solar_kwh || p.solar || p.pv_kwh || 0) }));
+            const series = chartData.map(p => ({ t: new Date(p.timestamp), v: (p.solar_kwh || p.solar || p.pv_kwh || 0) }));
             // Log a short sample to help debugging when charts don't appear
             try { console.debug('renderSolarLineToday: series sample', series.slice(0,3)); } catch(e){}
             // Render even when values may be zero so users can see a flat line instead of nothing
-            const chartData = series.map(s => ({ x: s.t, y: Number(s.v || 0) }));
+            const chartPoints = series.map(s => ({ x: s.t, y: Number(s.v || 0) }));
 
             // Use theme colors from CSS variables so solar charts match the site theme
             const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-color') || '#FFC107';
@@ -1455,14 +1579,33 @@
             const bg = hexToRgba((accentDark.trim() || accent).trim(), 0.08);
 
             const cssGridColor = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
+            
+            const xAxisConfig = is7DayChart ? {
+                type: 'time',
+                time: { unit: 'day' },
+                grid: { display: false },
+                ticks: {
+                    maxTicksLimit: 7,
+                    callback: function(value) {
+                        const d = new Date(value);
+                        return ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
+                    }
+                }
+            } : {
+                type: 'time',
+                time: { unit: 'hour' },
+                grid: { display: false },
+                ticks: { maxTicksLimit: 6 }
+            };
+
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'line',
-                data: { datasets: [{ data: chartData, borderColor: (accentDark.trim() || accent).trim(), backgroundColor: bg, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
+                data: { datasets: [{ data: chartPoints, borderColor: (accentDark.trim() || accent).trim(), backgroundColor: bg, borderWidth: 2, tension: 0.3, pointRadius: 0, fill: true }] },
                 options: {
                     ...commonChartOptions,
                     plugins: { tooltip: { mode: 'index', intersect: false }, legend: { display: false } },
                     scales: {
-                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 6 } },
+                        x: xAxisConfig,
                         y: { beginAtZero: true, grid: { color: cssGridColor.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 4 }, title: { display: false } }
                     }
                 }
@@ -1481,25 +1624,45 @@
             } catch (e) { /* ignore */ }
         }
 
-        function renderSolarByHourToday(data) {
-            const chartId = 'solarByHourChartToday';
+        function renderSolarByHourToday(chartIdParam, data) {
+            // Support both old single-param call and new two-param call
+            let chartId, chartData;
+            if (typeof chartIdParam === 'string') {
+                chartId = chartIdParam;
+                chartData = data;
+            } else {
+                chartId = 'solarByHourChartToday';
+                chartData = chartIdParam;
+            }
             destroyChart(chartId);
             const canvas = document.getElementById(chartId);
             if (!canvas) return;
-            if (!data || data.length === 0) {
+            if (!chartData || chartData.length === 0) {
                 console.debug('renderSolarByHourToday: no data provided');
                 return;
             }
 
-            // Aggregate by hour
-            const hourly = {};
-            data.forEach(p => {
-                const key = new Date(p.timestamp).toISOString().slice(0,13) + ':00:00Z';
-                const val = (p.solar_kwh || p.solar || p.pv_kwh || 0);
-                hourly[key] = (hourly[key] || 0) + Number(val);
-            });
-            const entries = Object.entries(hourly).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
-            if (entries.length === 0) { console.debug('renderSolarByHourToday: no hourly entries'); return; }
+            const is7DayChart = chartId.includes('Chart7');
+
+            // Aggregate by hour or by day for 7-day view
+            const aggregated = {};
+            if (is7DayChart) {
+                // For 7-day view, aggregate by day
+                chartData.forEach(p => {
+                    const key = new Date(p.timestamp).toISOString().split('T')[0];
+                    const val = (p.solar_kwh || p.solar || p.pv_kwh || 0);
+                    aggregated[key] = (aggregated[key] || 0) + Number(val);
+                });
+            } else {
+                // For today view, aggregate by hour
+                chartData.forEach(p => {
+                    const key = new Date(p.timestamp).toISOString().slice(0,13) + ':00:00Z';
+                    const val = (p.solar_kwh || p.solar || p.pv_kwh || 0);
+                    aggregated[key] = (aggregated[key] || 0) + Number(val);
+                });
+            }
+            const entries = Object.entries(aggregated).map(([k,v]) => ({ x: new Date(k), y: Number(v.toFixed(3)) }));
+            if (entries.length === 0) { console.debug('renderSolarByHourToday: no entries'); return; }
 
             // (no recent badge here — recent badge moved to the Solar Generation chart)
 
@@ -1516,14 +1679,33 @@
             };
 
             const cssGridColorBar = getComputedStyle(document.documentElement).getPropertyValue('--grid-color') || 'rgba(0,0,0,0.05)';
+            
+            const xAxisConfig = is7DayChart ? {
+                type: 'time',
+                time: { unit: 'day' },
+                grid: { display: false },
+                ticks: {
+                    maxTicksLimit: 7,
+                    callback: function(value) {
+                        const d = new Date(value);
+                        return ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()];
+                    }
+                }
+            } : {
+                type: 'time',
+                time: { unit: 'hour' },
+                grid: { display: false },
+                ticks: { maxTicksLimit: 8 }
+            };
+
             chartInstances[chartId] = new Chart(canvas, {
                 type: 'bar',
                 data: { datasets: [dataset] },
                 options: {
                     ...commonChartOptions,
-                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} kWh` } } },
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw.y} kWh` } } },
                     scales: {
-                        x: { type: 'time', time: { unit: 'hour' }, grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                        x: xAxisConfig,
                         y: { beginAtZero: true, grid: { color: cssGridColorBar.trim(), borderDash: [2,2] }, ticks: { maxTicksLimit: 5 }, title: { display: false } }
                     }
                 }
@@ -1625,8 +1807,8 @@
                         return { UL: Number(j.UL || defaults.UL), LL: Number(j.LL || defaults.LL) };
                     }
                 }
-                // Fallback: try /config.json (if user exposes a subset)
-                resp = await fetch('/config.json');
+                // Fallback: try config.json (if user exposes a subset)
+                resp = await fetch('config.json');
                 if (resp.ok) {
                     const cfg = await resp.json();
                     // support nested path like cfg.voltage_threshold or cfg.voltage
